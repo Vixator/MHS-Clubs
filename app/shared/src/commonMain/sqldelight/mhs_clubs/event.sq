@@ -1,0 +1,25 @@
+-- Event table: club meetings, events, and special occasions.
+-- Each event belongs to exactly one club and is displayed in the
+-- in-app calendar and optionally synced to each member's Google Calendar.
+
+CREATE TABLE events (
+    id            TEXT PRIMARY KEY,
+    club_id       TEXT    NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    description   TEXT    NOT NULL DEFAULT '',
+    location      TEXT,
+    -- ISO-8601 timestamps (with timezone info)
+    start_time    TEXT    NOT NULL,
+    end_time      TEXT,
+    -- Whether this event has been synced to Google Calendar for each member
+    -- (sync is done server-side; this flag tracks global sync status)
+    google_calendar_synced INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Index for querying events by club (used in calendar view)
+CREATE INDEX IF NOT EXISTS idx_events_club_id ON events(club_id);
+
+-- Index for time-range queries (upcoming events)
+CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);

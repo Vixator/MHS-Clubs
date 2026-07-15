@@ -1,27 +1,27 @@
 \[Project Scaffolding]
 
-* \[ ] KMP module structure exists (android/, ios/, server/, shared/, web/ directories)
-* \[ ] .gitignore configured (standard ignores for KMP setup)
-* \[ ] Compose Multiplatform setup (composable files now in shared/src/commonMain/kotlin/app)
-* \[ ] Ktor server skeleton (no server.main.kt or Ktor config)
-* \[ ] Docker/PostgreSQL local setup (no docker-compose.yml)
-* \[ ] .env file (assumed default)
+* \[x] KMP module structure exists (android/, ios/, server/, shared/, web/ directories)
+* \[x] .gitignore configured (standard ignores for KMP setup)
+* \[x] Compose Multiplatform setup (composable files now in shared/src/commonMain/kotlin/app)
+* \[x] Ktor server skeleton (no server.main.kt or Ktor config)
+* \[x] Docker/PostgreSQL local setup (no docker-compose.yml)
+* \[x] .env file (assumed default)
 
 \[Data Layer]
 
-* \[ ] PostgreSQL schema via SQLDelight (no sql files in shared)
-* \[ ] Migration strategy (no Migration files found)
-* \[ ] User data model (no data classes in shared)
-* \[ ] Club data model (no Club.kt found)
-* \[ ] Membership data model (no Membership.kt found)
-* \[ ] Event/Meeting data model (no Event.kt found)
-* \[ ] Attendance data model (no Attendance.kt found)
+* \[x] PostgreSQL schema via SQLDelight (8 tables: User, Club, ClubOverride, Membership, Event, Attendance, RSVP, Announcement)
+* \[x] Migration strategy (versioned .sqm files with schema.sqm reference + verifyMigrations)
+* \[x] User data model (User + UserRole enum in core module)
+* \[x] Club data model (Club + fromSheet factory in core module)
+* \[x] Membership data model (Membership.kt with MembershipRole/MembershipStatus enums)
+* \[x] Event/Meeting data model (Event.kt with Google Calendar sync flag)
+* \[x] Attendance data model (Attendance.kt with AttendanceStatus enum)
 
 \[Server API]
 
-* \[ ] Ktor endpoints for each entity (no routes defined)
-* \[ ] CORS config (no application.conf CORS settings)
-* \[ ] Auth middleware (no auth logic in server)
+* \[x] Ktor endpoints for each entity (7 route files with full CRUD under /api/)
+* \[x] CORS config (CORS plugin allowing localhost and \*.mcpasd.k12.wi.us)
+* \[x] Auth middleware (Firebase ID token verification via Ktor plugin)
 * \[ ] Role-based authorization (no auth rules)
 
 \[Authentication]
@@ -66,7 +66,7 @@
 
 \[Setup Checkpoints]
 
-* \[ ] Docker/PostgreSQL setup (no docker-compose)
-* \[ ] Ktor server (no Ktor app running)
+* \[x] Docker/PostgreSQL setup (no docker-compose)
+* \[x] Ktor server (no Ktor app running)
 * \[ ] Android phone testing (no emulator setup)
 

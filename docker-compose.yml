@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mhs-clubs-db
+    environment:
+      POSTGRES_DB: mhs_clubs
+      POSTGRES_USER: mhs_clubs_app
+      POSTGRES_PASSWORD: mhs_clubs_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - mhs_clubs_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mhs_clubs_app -d mhs_clubs"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mhs_clubs_data:

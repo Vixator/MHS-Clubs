@@ -1,0 +1,124 @@
+-- Initial baseline schema for MHS Clubs PostgreSQL database.
+-- This file represents the full DDL for the current schema version.
+-- Future changes should use versioned migration files in the migrations/ directory.
+
+CREATE TABLE IF NOT EXISTS users (
+    id          TEXT PRIMARY KEY,
+    firebase_uid TEXT    NOT NULL UNIQUE,
+    email       TEXT    NOT NULL,
+    display_name TEXT   NOT NULL,
+    role        TEXT    NOT NULL CHECK (role IN ('student', 'teacher')),
+    avatar_url  TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+CREATE TABLE IF NOT EXISTS clubs (
+    id              TEXT PRIMARY KEY,
+    sheet_source_id TEXT    NOT NULL UNIQUE,
+    name            TEXT    NOT NULL,
+    description     TEXT    NOT NULL DEFAULT '',
+    logo_url        TEXT,
+    category        TEXT    NOT NULL DEFAULT 'General',
+    meeting_day     TEXT,
+    meeting_time    TEXT,
+    meeting_location TEXT,
+    code            TEXT    NOT NULL UNIQUE,
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_clubs_name ON clubs(name);
+CREATE INDEX IF NOT EXISTS idx_clubs_category ON clubs(category);
+CREATE INDEX IF NOT EXISTS idx_clubs_code ON clubs(code);
+
+CREATE TABLE IF NOT EXISTS club_overrides (
+    id          TEXT PRIMARY KEY,
+    club_id     TEXT    NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    field_name  TEXT    NOT NULL CHECK (field_name IN ('meeting_day', 'meeting_time', 'meeting_location')),
+    value       TEXT    NOT NULL,
+    updated_by  TEXT    NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(club_id, field_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_club_overrides_club_id ON club_overrides(club_id);
+
+CREATE TABLE IF NOT EXISTS memberships (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    club_id         TEXT    NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    role            TEXT    NOT NULL DEFAULT 'member'
+                        CHECK (role IN ('member', 'officer', 'student_leader')),
+    status          TEXT    NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'active', 'revoked')),
+    joined_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    leader_granted_at TEXT,
+    revoked_at      TEXT,
+    UNIQUE(user_id, club_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_club_id ON memberships(club_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_student_leader ON memberships(club_id, role)
+    WHERE role = 'student_leader';
+
+CREATE TABLE IF NOT EXISTS events (
+    id                   TEXT PRIMARY KEY,
+    club_id              TEXT    NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    title                TEXT    NOT NULL,
+    description          TEXT    NOT NULL DEFAULT '',
+    location             TEXT,
+    start_time           TEXT    NOT NULL,
+    end_time             TEXT,
+    google_calendar_synced INTEGER NOT NULL DEFAULT 0,
+    created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_club_id ON events(club_id);
+CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);
+
+CREATE TABLE IF NOT EXISTS attendance (
+    id            TEXT PRIMARY KEY,
+    event_id      TEXT    NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id       TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status        TEXT    NOT NULL DEFAULT 'present'
+                        CHECK (status IN ('present', 'absent', 'late')),
+    recorded_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(event_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_event_id ON attendance(event_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
+
+CREATE TABLE IF NOT EXISTS rsvps (
+    id            TEXT PRIMARY KEY,
+    event_id      TEXT    NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id       TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status        TEXT    NOT NULL DEFAULT 'going'
+                        CHECK (status IN ('going', 'maybe', 'not_going')),
+    responded_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(event_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rsvps_event_id ON rsvps(event_id);
+CREATE INDEX IF NOT EXISTS idx_rsvps_user_id ON rsvps(user_id);
+
+CREATE TABLE IF NOT EXISTS announcements (
+    id            TEXT PRIMARY KEY,
+    club_id       TEXT    NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    content       TEXT    NOT NULL,
+    author_id     TEXT    NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    is_active     INTEGER NOT NULL DEFAULT 1,
+    posted_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcements_club_id ON announcements(club_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_posted_at ON announcements(posted_at);

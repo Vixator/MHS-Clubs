@@ -1,0 +1,33 @@
+-- Club table: the master list of clubs.
+-- Base data is sourced (read-only) from a Google Sheet via the Sheets API
+-- and mirrored into PostgreSQL for performance.
+-- Local overrides (meeting time/location changes) are stored in club_overrides.
+
+CREATE TABLE clubs (
+    id              TEXT PRIMARY KEY,
+    -- The row identifier from the source Google Sheet; never modified
+    sheet_source_id TEXT    NOT NULL UNIQUE,
+    name            TEXT    NOT NULL,
+    description     TEXT    NOT NULL DEFAULT '',
+    logo_url        TEXT,
+    category        TEXT    NOT NULL DEFAULT 'General',
+    -- Meeting details: may be null if not yet set
+    meeting_day     TEXT,
+    meeting_time    TEXT,
+    meeting_location TEXT,
+    -- The club code (e.g. "DECA", "Robotics") used for invite links
+    code            TEXT    NOT NULL UNIQUE,
+    -- Whether the club is active (archived clubs are hidden from the directory)
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Index for searching clubs by name (used in directory search)
+CREATE INDEX IF NOT EXISTS idx_clubs_name ON clubs(name);
+
+-- Index for searching by category
+CREATE INDEX IF NOT EXISTS idx_clubs_category ON clubs(category);
+
+-- Index for invite-link lookups by code
+CREATE INDEX IF NOT EXISTS idx_clubs_code ON clubs(code);
