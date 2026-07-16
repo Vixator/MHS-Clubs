@@ -1,10 +1,7 @@
 package com.precon.mhsclubs.auth
 
 import com.precon.mhsclubs.model.User
-import com.precon.mhsclubs.model.UserRole
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Authentication service interface for the MHS Clubs app.
@@ -17,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Implementations should be provided for each platform (Android, iOS, Web).
  */
-expect class AuthService {
+interface AuthService {
     
     /**
      * Flow of the current authentication state.
@@ -93,9 +90,9 @@ sealed class AuthState {
  * Default implementation of AuthService for platforms that don't have Firebase.
  * Useful for testing or platforms without Firebase support.
  */
-class DefaultAuthService : AuthService() {
+class DefaultAuthService : AuthService {
     
-    private val _authState = MutableStateFlow<AuthState>(AuthState.SignedOut)
+    private val _authState = kotlinx.coroutines.flow.MutableStateFlow<AuthState>(AuthState.SignedOut)
     override val authState = _authState.asStateFlow()
     
     override val currentUser: User? = null
@@ -120,6 +117,6 @@ class DefaultAuthService : AuthService() {
 
 /**
  * Factory function to create an AuthService instance.
- * Each platform should provide its own implementation.
+ * Each platform provides its own implementation.
  */
 expect fun createAuthService(): AuthService

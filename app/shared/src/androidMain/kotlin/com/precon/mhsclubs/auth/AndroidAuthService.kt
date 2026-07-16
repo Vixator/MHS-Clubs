@@ -26,7 +26,7 @@ import kotlinx.coroutines.tasks.await
  *
  * @param context The Android application context
  */
-class AndroidAuthService(private val context: Context) : AuthService() {
+class AndroidAuthService(private val context: Context) : AuthService {
     
     private val auth: FirebaseAuth = Firebase.auth
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
@@ -133,16 +133,10 @@ class AndroidAuthService(private val context: Context) : AuthService() {
      * @return Result containing the signed-in user or an error
      */
     override suspend fun signInWithGoogle(): Result<User> {
-        return try {
-            // This would typically be called from an Activity
-            // The actual sign-in flow is handled by the Activity
-            Result.failure(UnsupportedOperationException(
-                "signInWithGoogle must be called from an Activity context. " +
-                "Use launchGoogleSignIn() from an Activity."
-            ))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return Result.failure(UnsupportedOperationException(
+            "signInWithGoogle must be called from an Activity context. " +
+            "Use launchGoogleSignIn() from an Activity."
+        ))
     }
     
     /**
@@ -151,7 +145,6 @@ class AndroidAuthService(private val context: Context) : AuthService() {
      *
      * @param activity The activity to launch the sign-in flow from
      * @param requestCode The request code to use for the activity result
-     * @return Result containing the signed-in user or an error
      */
     fun launchGoogleSignIn(activity: android.app.Activity, requestCode: Int) {
         googleSignInClient?.signOut()?.addOnCompleteListener {
@@ -249,17 +242,6 @@ class AndroidAuthService(private val context: Context) : AuthService() {
         authStateListener = null
         authScope.cancel()
     }
-}
-
-/**
- * Creates an Android-specific AuthService instance.
- */
-actual fun createAuthService(): AuthService {
-    // This requires an Android context
-    // In practice, this would be initialized with the Application context
-    throw UnsupportedOperationException(
-        "AndroidAuthService requires a Context. Use AndroidAuthService(context) directly."
-    )
 }
 
 /**
