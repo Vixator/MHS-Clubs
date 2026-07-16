@@ -3,8 +3,8 @@
 * \[x] KMP module structure exists (android/, ios/, server/, shared/, web/ directories)
 * \[x] .gitignore configured (standard ignores for KMP setup)
 * \[x] Compose Multiplatform setup (composable files now in shared/src/commonMain/kotlin/app)
-* \[x] Ktor server skeleton (no server.main.kt or Ktor config)
-* \[x] Docker/PostgreSQL local setup (no docker-compose.yml)
+* \[x] Ktor server skeleton (Application.kt with Firebase and Sheets integration)
+* \[x] Docker/PostgreSQL local setup (docker-compose.yml exists)
 * \[x] .env file (assumed default)
 
 \[Data Layer]
@@ -22,51 +22,50 @@
 * \[x] Ktor endpoints for each entity (7 route files with full CRUD under /api/)
 * \[x] CORS config (CORS plugin allowing localhost and \*.mcpasd.k12.wi.us)
 * \[x] Auth middleware (Firebase ID token verification via Ktor plugin)
-* \[ ] Role-based authorization (no auth rules)
+* \[x] Role-based authorization (AuthPlugin with AuthenticationScheme enum and route-level auth)
 
 \[Authentication]
 
-* \[ ] Firebase Google Sign-In (no Firebase setup)
-* \[ ] Domain-restricted role assignment (no domain check)
-* \[ ] Incremental OAuth scope (no Calendar API scope)
+* \[x] Firebase Google Sign-In (FirebaseConfig.kt, FirebaseTokenVerifier.kt with dev mode support)
+* \[x] Domain-restricted role assignment (FirebaseTokenVerifier checks @mcpasd.k12.wi.us and @students.mcpasd.k12.wi.us)
+* \[x] Incremental OAuth scope (Google Sign-In configured with Calendar scope in AndroidAuthService)
 
 \[Google Sheets Integration]
 
-* \[ ] Read-only club data import (no sheet integration)
-* \[ ] Data sync (no sync logic)
+* \[x] Read-only club data import (GoogleSheetsService.kt with Sheets API v4)
+* \[x] Data sync (SyncRoutes.kt with POST /api/sync/clubs endpoint)
 
 \[Core Features - Android]
 
-* \[ ] Auth screens (no LoginActivity or AccountActivity)
-* \[ ] Club Directory/Search (no ClubListScreen)
-* \[ ] Club Details (no ClubDetailScreen)
-* \[ ] Join Club flow (no JoinFlow.kt)
-* \[ ] In-app Calendar view (no CalendarView.kt)
-* \[ ] Event/RSVP (no EventRSVP.kt)
-* \[ ] Announcements (no AnnouncementScreen)
-* \[ ] Admin dashboard (no AdminPanel)
-* \[ ] Attendance tracking (no AttendanceTracker)
-* \[ ] CSV export (no ExportUtil.kt)
+* \[x] Auth screens (LoginScreen.kt, AccountScreen.kt)
+* \[x] Club Directory/Search (ClubListScreen.kt with searchable list)
+* \[x] Club Details (ClubDetailScreen.kt with full club info)
+* \[x] Join Club flow (JoinClubScreen.kt with code input)
+* \[x] In-app Calendar view (CalendarScreen.kt with monthly view)
+* \[x] Event/RSVP (EventListScreen.kt, RsvpScreen.kt)
+* \[x] Announcements (AnnouncementListScreen.kt)
+* \[x] Admin dashboard (AdminDashboardScreen.kt)
+* \[x] Attendance tracking (AttendanceScreen.kt)
+* \[x] CSV export (CsvExportService.kt)
 
 \[Google Calendar Sync]
 
-* \[ ] Server-side token storage (no token DB)
-* \[ ] Event creation (no Calendar API calls)
+* \[x] Server-side token storage (GoogleCalendarService.kt with service account support)
+* \[x] Event creation (createEvent, updateEvent, deleteEvent methods)
 
 \[Testing]
 
-* \[ ] JUnit for shared/server (no tests directory)
+* \[x] JUnit for shared/server (ApplicationTest.kt with server endpoint tests)
 * \[ ] Espresso for Android UI (no tests/ directory)
 
 \[iOS and Web parity]
 
-* \[ ] iOS main (no iOS target)
-* \[ ] Web UI (no web/ main)
+* \[ ] iOS main (no iOS target implementation)
+* \[ ] Web UI (no web/ main implementation)
 * \[ ] Parity check (no parity test scripts)
 
 \[Setup Checkpoints]
 
-* \[x] Docker/PostgreSQL setup (no docker-compose)
-* \[x] Ktor server (no Ktor app running)
+* \[x] Docker/PostgreSQL setup (docker-compose.yml exists)
+* \[x] Ktor server (Application.kt with Firebase and Sheets integration)
 * \[ ] Android phone testing (no emulator setup)
-

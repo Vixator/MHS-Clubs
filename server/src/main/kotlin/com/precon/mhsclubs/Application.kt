@@ -1,7 +1,9 @@
 package com.precon.mhsclubs
 
 import com.precon.mhsclubs.auth.*
+import com.precon.mhsclubs.firebase.FirebaseConfig
 import com.precon.mhsclubs.routes.*
+import com.precon.mhsclubs.services.GoogleSheetsService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.cors.*
@@ -9,7 +11,6 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger(Application::class.java)
@@ -23,7 +24,7 @@ private val FirebaseProjectId: String
         ?: System.getProperty("firebase.projectId")
         ?: run {
             log.warn(
-                "FIREBASE_PROJECT_ID not set – auth will be in development mode " +
+                "FIREBASE_PROJECT_ID not set  auth will be in development mode " +
                 "(tokens accepted without verification). Set FIREBASE_PROJECT_ID " +
                 "to a valid Firebase project ID for production."
             )
@@ -46,6 +47,19 @@ fun main() {
  * - Authenticated: user profile, memberships, events, RSVP, attendance
  */
 fun Application.module() {
+    // Initialize Firebase Admin SDK
+    // In production, set FIREBASE_SERVICE_ACCOUNT to the path of your service account JSON file
+    val firebaseInitialized = FirebaseConfig.initialize()
+    if (!firebaseInitialized) {
+        log.warn("Firebase Admin SDK not initialized. Running in development mode.")
+    }
+
+    // Initialize Google Sheets service
+    val sheetsService = GoogleSheetsService()
+    if (!sheetsService.isConfigured()) {
+        log.info("Google Sheets integration not configured. Club data must be managed manually.")
+    }
+
     // CORS configuration: allows cross-origin requests from localhost and the school domain.
     install(CORS) {
         allowHost("localhost:*")
@@ -70,11 +84,22 @@ fun Application.module() {
             call.respondText(sayHello("Ktor"))
         }
 
-        // ── Public routes (no authentication required) ──────────────────
+        // Health check endpoint
+        get("/health") {
+            val status = mapOf(
+                "status" to "ok",
+                "firebaseInitialized" to firebaseInitialized,
+                "firebaseProjectId" to FirebaseConfig.projectId,
+                "sheetsConfigured" to sheetsService.isConfigured()
+            )
+            call.respond(HttpStatusCode.OK, status)
+        }
+
+        //  Public routes (no authentication required) 
         clubRoutes()
         announcementRoutes()
 
-        // ── Authenticated routes (any verified Firebase ID token) ───────
+        //  Authenticated routes (any verified Firebase ID token) 
         authenticate(FirebaseProjectId) {
             userRoutes()
             membershipRoutes()
@@ -82,5 +107,15 @@ fun Application.module() {
             attendanceRoutes()
             rsvpRoutes()
         }
+
+        //  Sync routes (admin only) 
+        syncRoutes(sheetsService)
     }
+}
+
+/**
+ * Simple hello function for the root endpoint.
+ */
+fun sayHello(name: String): String {
+    return "Hello, $name!"
 }

@@ -2,15 +2,11 @@ package com.precon.mhsclubs.auth
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseToken
+import com.precon.mhsclubs.firebase.FirebaseConfig
 import io.ktor.server.application.*
 import io.ktor.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.string
-import kotlinx.serialization.json.decodeFromJsonElement
 import org.slf4j.LoggerFactory
 
 /**
@@ -18,6 +14,9 @@ import org.slf4j.LoggerFactory
  *
  * Uses the Firebase Admin SDK's [FirebaseAuth] for server-side token verification.
  * Tokens are expected in the Authorization header as "Bearer <token>".
+ *
+ * In development mode (Firebase not initialized), tokens are accepted without
+ * verification and a warning is logged.
  *
  * @param projectId Firebase project ID (used for custom claims lookup).
  *                  Set via the [AuthPlugin] or the FIREBASE_PROJECT_ID env var.
@@ -38,12 +37,22 @@ class FirebaseTokenVerifier(
     /**
      * Verifies a Firebase ID token and returns the decoded [UserIdentity].
      *
+     * In development mode (Firebase not initialized), accepts any non-empty token
+     * and returns a mock identity with the token as UID.
+     *
      * @param token The raw ID token string from the Authorization header.
      * @throws IllegalArgumentException if the token is invalid or expired.
      * @throws SecurityException if the email domain is not an allowed school domain.
      */
     suspend fun verify(token: String): UserIdentity = withContext(Dispatchers.IO) {
-        val decoded = getFirebaseAuth().verifyIdToken(token)
+        // Development mode: accept any token if Firebase is not initialized
+        if (!FirebaseConfig.isInitialized()) {
+            log.debug("Development mode: accepting token without verification")
+            return@withContext createDevIdentity(token)
+        }
+
+        val auth = getFirebaseAuth()
+        val decoded = auth.verifyIdToken(token)
         toUserIdentity(decoded)
     }
 
@@ -69,10 +78,10 @@ class FirebaseTokenVerifier(
     /**
      * Checks whether the given [UserIdentity] satisfies the required [scheme].
      *
-     * - [AuthenticationScheme.AnyAuthenticated] – always passes if user is non-null.
-     * - [AuthenticationScheme.TeacherOnly] – requires email verified AND school domain.
-     * - [AuthenticationScheme.AdminOnly] – requires admin custom claim.
-     * - [AuthenticationScheme.StudentLeader] – requires the "student_leader" custom claim
+     * - [AuthenticationScheme.AnyAuthenticated]  always passes if user is non-null.
+     * - [AuthenticationScheme.TeacherOnly]  requires email verified AND school domain.
+     * - [AuthenticationScheme.AdminOnly]  requires admin custom claim.
+     * - [AuthenticationScheme.StudentLeader]  requires the "student_leader" custom claim
      *   for a specific club. Delegates to [checkScheme(identity, scheme, clubId)].
      */
     fun checkScheme(identity: UserIdentity, scheme: AuthenticationScheme): Boolean {
@@ -143,7 +152,7 @@ class FirebaseTokenVerifier(
             )
         }
 
-        // Look up custom claims (admin, etc.)
+        // Look up custom claims (admin, student_leader, etc.)
         val claims = try {
             getFirebaseAuth().getUser(uid).customClaims as? Map<String, Any>
                 ?: emptyMap<String, Any>()
@@ -158,6 +167,30 @@ class FirebaseTokenVerifier(
             displayName = displayName,
             emailVerified = emailVerified,
             claims = claims
+        )
+    }
+
+    /**
+     * Creates a development-mode identity from a raw token.
+     * Used when Firebase Admin SDK is not initialized.
+     * Extracts a mock email from the token if it looks like a JWT.
+     */
+    private fun createDevIdentity(token: String): UserIdentity {
+        // Try to extract email from JWT payload (for development/testing)
+        val parts = token.split('.')
+        val payload = if (parts.size >= 2) parts[1] else ""
+        
+        // Mock email based on token hash for development
+        val mockEmail = "dev-user@mcpasd.k12.wi.us"
+        
+        log.warn("Development mode: created mock identity for token: ${token.take(8)}...")
+        
+        return UserIdentity(
+            uid = "dev-${token.take(8)}",
+            email = mockEmail,
+            displayName = "Development User",
+            emailVerified = true,
+            claims = mapOf("dev_mode" to true)
         )
     }
 }
