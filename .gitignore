@@ -24,3 +24,20 @@ node_modules/
 .env.*.local
 *.db
 *.sqlite
+
+# Signing / keystores
+*.jks
+*.keystore
+keystore.properties
+
+# Firebase service account keys (e.g. mhs-clubs-*.json)
+mhs-clubs-fa5d9b477aab.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
+# Vercel
+.vercel
+
+# Claude Code automation logs (may contain prompts/tokens)
+runner_log.jsonl
+*.jsonl

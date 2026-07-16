@@ -60,7 +60,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
             .requestProfile()
             .requestServerAuthCode(context.getString(com.precon.mhsclubs.R.string.default_web_client_id))
             .requestScopes(
-                com.google.android.gms.common.api.Scope("https://www.googleapis.com/auth/calendar")
+                com.google.android.gms.common.api.Scope("https://www.googleapis.com/auth/calendar.events")
             )
             .build()
         
