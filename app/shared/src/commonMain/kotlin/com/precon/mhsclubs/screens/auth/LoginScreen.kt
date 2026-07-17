@@ -47,7 +47,7 @@ fun LoginScreen(
     onSignedIn: (UserRole) -> Unit,
     onError: (String) -> Unit
 ) {
-    val authState by authService.authState.collectAsState()
+    val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
 
     // Handle auth state changes
     when (val state = authState) {

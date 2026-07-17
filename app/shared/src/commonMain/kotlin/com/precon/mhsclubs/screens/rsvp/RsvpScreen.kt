@@ -28,9 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.precon.mhsclubs.models.Event
-import com.precon.mhsclubs.models.Rsvp
-import com.precon.mhsclubs.models.RsvpStatus
 import kotlinx.datetime.Instant
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * RSVP screen for responding to an event invitation.
@@ -202,7 +201,7 @@ fun RsvpScreen(
         if (currentRsvp != null) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Current response: ${currentRsvp.status.name}",
+                text = "Current response: ${currentRsvp.status.value}",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
@@ -254,7 +253,7 @@ sealed class RsvpStatus(val value: String) {
     object NotGoing : RsvpStatus("not_going")
 
     companion object {
-        private val BY_VALUE = entries.associateBy(RsvpStatus::value)
+        private val BY_VALUE = listOf(Going, Maybe, NotGoing).associateBy(RsvpStatus::value)
 
         fun fromValue(value: String): RsvpStatus =
             BY_VALUE[value] ?: throw IllegalArgumentException("Unknown RsvpStatus: $value")

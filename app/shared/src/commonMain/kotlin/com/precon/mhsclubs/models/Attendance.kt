@@ -30,7 +30,7 @@ sealed class AttendanceStatus(val value: String) {
     object Late : AttendanceStatus("late")
 
     companion object {
-        private val BY_VALUE = entries.associateBy(AttendanceStatus::value)
+        private val BY_VALUE = listOf(Present, Absent, Late).associateBy(AttendanceStatus::value)
 
         fun fromValue(value: String): AttendanceStatus =
             BY_VALUE[value] ?: throw IllegalArgumentException("Unknown AttendanceStatus: $value")

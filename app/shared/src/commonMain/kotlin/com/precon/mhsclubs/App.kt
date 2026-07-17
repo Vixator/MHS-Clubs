@@ -35,7 +35,7 @@ import com.precon.mhsclubs.screens.admin.AdminDashboardScreen
 import com.precon.mhsclubs.screens.announcements.AnnouncementListScreen
 import com.precon.mhsclubs.screens.attendance.AttendanceMember
 import com.precon.mhsclubs.screens.attendance.AttendanceScreen
-import com.precon.mhsclubs.screens.attendance.AttendanceStatus
+import com.precon.mhsclubs.models.AttendanceStatus
 import com.precon.mhsclubs.screens.auth.AccountScreen
 import com.precon.mhsclubs.screens.auth.LoginScreen
 import com.precon.mhsclubs.screens.calendar.CalendarScreen
@@ -88,7 +88,7 @@ fun AppContent() {
     val authService: AuthService = remember { createAuthService() }
     
     // Collect auth state
-    val authState by authService.authState.collectAsState()
+    val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
     
     // Track the current screen and navigation stack
     var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Login) }
@@ -207,8 +207,7 @@ fun AppContent() {
         AppScreen.ClubList -> {
             ClubListScreen(
                 onAccountClick = navigateToAccount,
-                onClubClick = navigateToClubDetail,
-                onJoinClubClick = navigateToJoinClub
+                onClubClick = navigateToClubDetail
             )
         }
         
@@ -220,11 +219,7 @@ fun AppContent() {
                     userRole = authService.currentUser?.role ?: UserRole.Student,
                     onBackClick = navigateBack,
                     onJoinClick = navigateToJoinClub,
-                    onLeaveClick = { /* Handle leave club */ },
-                    onEventClick = { eventId ->
-                        selectedEventId = eventId
-                        showEventDetail = true
-                    }
+                    onLeaveClick = { /* Handle leave club */ }
                 )
             }
         }
@@ -245,8 +240,7 @@ fun AppContent() {
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
-                },
-                onBackClick = navigateBack
+                }
             )
         }
         
@@ -256,8 +250,7 @@ fun AppContent() {
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
-                },
-                onBackClick = navigateBack
+                }
             )
         }
         
@@ -285,10 +278,10 @@ fun AppContent() {
         AppScreen.Announcements -> {
             AnnouncementListScreen(
                 announcements = getSampleAnnouncements(),
-                onAnnouncementClick = { /* Show announcement detail */ },
-                onBackClick = navigateBack
+                onAnnouncementClick = { /* Show announcement detail */ }
             )
         }
+        AppScreen.Attendance, AppScreen.Rsvp -> Unit
     }
     
     // Modal screens

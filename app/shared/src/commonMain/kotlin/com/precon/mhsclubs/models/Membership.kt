@@ -33,7 +33,7 @@ sealed class MembershipRole(val value: String) {
     object StudentLeader : MembershipRole("student_leader")
 
     companion object {
-        private val BY_VALUE = entries.associateBy(MembershipRole::value)
+        private val BY_VALUE = listOf(Member, Officer, StudentLeader).associateBy(MembershipRole::value)
 
         fun fromValue(value: String): MembershipRole =
             BY_VALUE[value] ?: throw IllegalArgumentException("Unknown MembershipRole: $value")
@@ -53,7 +53,7 @@ sealed class MembershipStatus(val value: String) {
     object Revoked : MembershipStatus("revoked")
 
     companion object {
-        private val BY_VALUE = entries.associateBy(MembershipStatus::value)
+        private val BY_VALUE = listOf(Pending, Active, Revoked).associateBy(MembershipStatus::value)
 
         fun fromValue(value: String): MembershipStatus =
             BY_VALUE[value] ?: throw IllegalArgumentException("Unknown MembershipStatus: $value")

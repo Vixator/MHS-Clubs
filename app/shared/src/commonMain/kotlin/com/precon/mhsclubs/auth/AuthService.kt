@@ -2,6 +2,7 @@ package com.precon.mhsclubs.auth
 
 import com.precon.mhsclubs.model.User
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Authentication service interface for the MHS Clubs app.

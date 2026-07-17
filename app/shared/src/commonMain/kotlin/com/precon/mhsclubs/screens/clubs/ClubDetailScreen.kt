@@ -34,9 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.precon.mhsclubs.model.Club
-import com.precon.mhsclubs.model.Membership
-import com.precon.mhsclubs.model.MembershipRole
-import com.precon.mhsclubs.model.MembershipStatus
+import com.precon.mhsclubs.models.Membership
+import com.precon.mhsclubs.models.MembershipRole
+import com.precon.mhsclubs.models.MembershipStatus
 import com.precon.mhsclubs.model.UserRole
 
 /**
@@ -267,7 +267,7 @@ fun ClubDetailScreen(
 
                         if (membership.role != MembershipRole.Member) {
                             Text(
-                                text = "Role: ${membership.role.name}",
+                                text = "Role: ${membership.role.value}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -323,7 +323,10 @@ fun ClubDetailScreenPreview() {
                 userId = "user1",
                 clubId = "1",
                 role = MembershipRole.Member,
-                status = MembershipStatus.Active
+                status = MembershipStatus.Active,
+                joinedAt = null,
+                leaderGrantedAt = null,
+                revokedAt = null
             ),
             userRole = UserRole.Student
         )

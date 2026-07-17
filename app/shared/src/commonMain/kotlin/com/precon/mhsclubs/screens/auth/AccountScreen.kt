@@ -47,7 +47,7 @@ fun AccountScreen(
     authService: AuthService,
     onSignedOut: () -> Unit
 ) {
-    val authState by authService.authState.collectAsState()
+    val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
 
     // Handle sign out
     LaunchedEffect(authState) {
@@ -58,7 +58,7 @@ fun AccountScreen(
 
     AccountContent(
         user = authService.currentUser,
-        onSignOut = { authService.signOut() }
+        onSignOut = { }
     )
 }
 

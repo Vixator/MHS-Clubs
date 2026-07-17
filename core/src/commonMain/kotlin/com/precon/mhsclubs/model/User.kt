@@ -1,8 +1,7 @@
 package com.precon.mhsclubs.model
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
-import java.util.UUID
 
 /**
  * User profile entity mapped to the `users` PostgreSQL table.
@@ -15,7 +14,7 @@ import java.util.UUID
  */
 @Serializable
 data class User(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = newId(),
     val firebaseUid: String,
     val email: String,
     val displayName: String,
@@ -49,7 +48,7 @@ data class User(
             displayName: String,
             avatarUrl: String? = null
         ): User {
-            val role = UserRole.fromEmailDomain(email)
+            val role = fromEmailDomain(email)
             return User(
                 firebaseUid = firebaseUid,
                 email = email,
@@ -65,10 +64,10 @@ data class User(
          * - @mcpasd.k12.wi.us → Teacher
          * - Any other domain → throws
          */
-        private fun UserRole.fromEmailDomain(email: String): UserRole {
+        private fun fromEmailDomain(email: String): UserRole {
             return when {
-                email.endsWith("@students.mcpasd.k12.wi.us") -> Student
-                email.endsWith("@mcpasd.k12.wi.us") -> Teacher
+                email.endsWith("@students.mcpasd.k12.wi.us") -> UserRole.Student
+                email.endsWith("@mcpasd.k12.wi.us") -> UserRole.Teacher
                 else -> throw IllegalArgumentException(
                     "Sign-in rejected: email domain '$email' is not an allowed school domain"
                 )

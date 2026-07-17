@@ -1,8 +1,7 @@
 package com.precon.mhsclubs.model
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
-import java.util.UUID
 
 /**
  * Club entity mapped to the `clubs` PostgreSQL table.
@@ -15,7 +14,7 @@ import java.util.UUID
  */
 @Serializable
 data class Club(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = newId(),
     val sheetSourceId: String,
     val name: String,
     val description: String = "",

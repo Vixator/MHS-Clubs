@@ -40,8 +40,8 @@ kotlin {
     
     sourceSets {
         commonMain.dependencies {
-            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-            api("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+            api("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
