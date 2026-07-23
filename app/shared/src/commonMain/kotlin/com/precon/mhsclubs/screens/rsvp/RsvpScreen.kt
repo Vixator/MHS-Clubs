@@ -275,7 +275,6 @@ fun RsvpScreenPreview() {
                 location = "State Fair Grounds, Building A",
                 startTime = Instant.parse("2024-03-15T09:00:00Z"),
                 endTime = Instant.parse("2024-03-15T17:00:00Z"),
-                googleCalendarSynced = false,
                 createdAt = Instant.parse("2024-01-01T00:00:00Z"),
                 updatedAt = Instant.parse("2024-01-01T00:00:00Z")
             )

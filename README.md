@@ -1,49 +1,54 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Server.
+# MHS Clubs
 
-* [/app/iosApp](./app/iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+Kotlin Multiplatform club directory for Android, iOS, and Web, with a Ktor API.
 
-* [/app/shared](./app/shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./app/shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./app/shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./app/shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+## Architecture
 
-* [/core](./core/src) is for the code that will be shared between all targets in the project.
-  The most important subfolder is [commonMain](./core/src/commonMain/kotlin). If preferred, you
-  can add code to the platform-specific folders here too.
+Google sign-in is provided by Firebase Authentication in a personal Firebase/Google Cloud project. Firebase may show any Google account in its account picker. After Firebase verifies the ID token, the Ktor server accepts only verified school addresses:
 
-* [/server](./server/src/main/kotlin) is for the Ktor server application.
+- `@students.mcpasd.k12.wi.us` → student
+- `@mcpasd.k12.wi.us` → teacher administrator
 
-### Running the apps
+The domains are configurable through `STUDENT_EMAIL_DOMAIN` and `STAFF_EMAIL_DOMAIN`. There is no organization-owned OAuth dependency, hosted-domain Google restriction, Firebase custom-claim admin role, Calendar permission, Google Calendar API, or Google Sheets API.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+NocoDB is the data backend. Clients call Ktor; only Ktor holds the NocoDB API token and calls NocoDB's REST API. Teachers administer every club and can set a student's membership `is_club_admin` flag, granting that student administration of that club only.
 
-- Android app: `./gradlew :app:androidApp:assembleDebug`
-- Server: `./gradlew :server:run`
-- Web app:
-  - JavaScript browser target: `./gradlew :app:webApp:jsBrowserDevelopmentRun`
-- iOS app: open the [/app/iosApp](./app/iosApp) directory in Xcode and run it from there.
+The app's calendar is an in-app view of club events. It never reads, writes, or requests access to a user's Google Calendar.
 
-### Running tests
+## Local configuration
 
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
+Copy the variable names in `.env` into your local environment or deployment secret manager. Required server values are:
 
-- Android tests: `./gradlew :app:shared:testAndroidHostTest`
-- Server tests: `./gradlew :server:test`
-- Web tests:
-  - Wasm target: `./gradlew :app:shared:wasmJsTest`
-  - JS target: `./gradlew :app:shared:jsTest`
-- iOS tests: `./gradlew :app:shared:iosSimulatorArm64Test`
+```text
+FIREBASE_PROJECT_ID
+FIREBASE_SERVICE_ACCOUNT=/absolute/path/to/firebase-service-account.json
+STUDENT_EMAIL_DOMAIN=students.mcpasd.k12.wi.us
+STAFF_EMAIL_DOMAIN=mcpasd.k12.wi.us
+PORT=8080
+WEB_ALLOWED_HOST=clubs.example.org
+NOCODB_BASE_URL=https://your-nocodb.example.com
+NOCODB_API_TOKEN=...
+NOCODB_CLUBS_TABLE=...
+NOCODB_USERS_TABLE=...
+NOCODB_MEMBERSHIPS_TABLE=...
+NOCODB_EVENTS_TABLE=...
+NOCODB_RSVPS_TABLE=...
+NOCODB_ATTENDANCE_TABLE=...
+NOCODB_ANNOUNCEMENTS_TABLE=...
+```
 
----
+`PORT` is supplied by most cloud hosts and defaults to `8080` locally. Set `WEB_ALLOWED_HOST` to the deployed Web app's hostname (without scheme or path) so its browser requests are permitted by CORS.
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+Never commit the Firebase service-account JSON or NocoDB API token. The server fails closed for protected routes if Firebase Admin is not initialized.
 
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+## Club data import
+
+Export or prepare a UTF-8 CSV using [club-import-template.csv](data/club-import-template.csv), then import it into NocoDB's `clubs` table. A clean CSV is better than a live spreadsheet connection because the source changes annually and needs human cleanup first.
+
+## Development commands
+
+- Server tests: `./gradlew.bat :server:test`
+- Android build: `./gradlew.bat :app:androidApp:assembleDebug`
+- Server: `./gradlew.bat :server:run`
+
+Platform setup is in [HUMAN_TASKS.md](HUMAN_TASKS.md). The server, Android, and Web compile successfully; iOS must be built on macOS after its Firebase packages are added.

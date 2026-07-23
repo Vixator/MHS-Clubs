@@ -116,7 +116,7 @@ fun AccountContent(
                 ) {
                     val roleText = when (user?.role) {
                         UserRole.Student -> "Student"
-                        UserRole.Teacher -> "Teacher"
+                        UserRole.Staff -> "Staff administrator"
                         null -> "Unknown"
                     }
                     
@@ -124,7 +124,7 @@ fun AccountContent(
                         text = roleText,
                         style = MaterialTheme.typography.labelLarge,
                         color = when (user?.role) {
-                            UserRole.Teacher -> MaterialTheme.colorScheme.primary
+                            UserRole.Staff -> MaterialTheme.colorScheme.primary
                             else -> MaterialTheme.colorScheme.onSurface
                         }
                     )

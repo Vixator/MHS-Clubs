@@ -4,13 +4,11 @@ import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 
 /**
- * Club entity mapped to the `clubs` PostgreSQL table.
+ * Club entity stored in the NocoDB `clubs` table.
  *
- * Represents a school club whose base data is sourced (read-only) from a
- * Google Sheet via the Sheets API and mirrored into PostgreSQL for performance.
- * Meeting detail overrides are stored separately in [ClubOverride].
+ * Represents a school club imported into NocoDB from the annual club data file.
  *
- * All timestamp fields are ISO-8601 strings matching SQLDelight's TEXT columns.
+ * All timestamp fields are ISO-8601 strings.
  */
 @Serializable
 data class Club(
@@ -35,10 +33,9 @@ data class Club(
 
     companion object {
         /**
-         * Constructs a Club from Google Sheet source data.
-         * The club is active by default and has no meeting overrides.
+     * Constructs a Club from an imported source record.
          */
-        fun fromSheet(
+        fun fromImport(
             sheetSourceId: String,
             name: String,
             description: String = "",

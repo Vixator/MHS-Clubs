@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    id("app.cash.sqldelight") version "2.0.2"
 }
 
 kotlin {
@@ -37,6 +36,9 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.firebaseAuth)
+            implementation(libs.playServicesAuth)
+            implementation(libs.coroutinesPlayServices)
         }
         commonMain.dependencies {
             api(projects.core)
@@ -55,17 +57,6 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
-        }
-    }
-}
-
-sqldelight {
-    databases {
-        create("MHSClubsDatabase") {
-            packageName.set("com.precon.mhsclubs.database")
-            dialect("app.cash.sqldelight:postgresql-dialect:2.0.2")
-            // SQLDelight 2.x automatically discovers .sq/.sqm files from the
-            // configured Kotlin source sets, including versioned migrations.
         }
     }
 }

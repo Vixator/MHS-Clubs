@@ -1,52 +1,27 @@
 # MHS Clubs — Delivery Plan
 
-Status key: `[x]` implemented foundation, `[ ]` not complete, `[~]` partial or stub.
+Status: `[x]` complete, `[~]` partial, `[ ]` pending.
 
-## Discrepancies Found
+## New technical direction
 
-- Prior plan treated client screens as largely complete, but app navigation/state still relies on hardcoded sample data and placeholder actions (`app/shared/src/commonMain/kotlin/com/precon/mhsclubs/App.kt`).
-- Prior plan listed "persisted `calendar_sync_enabled` setting" as entirely pending; DB schema column exists, but no server/UI wiring exists yet (partial at schema level only).
-- Prior plan correctly flagged route CRUD and Gradle build issues; both remain unresolved.
-- Prior plan did not explicitly track missing Android login wiring from `LoginScreen` to `AndroidAuthService`.
+- [x] Personal Firebase/Google Cloud project is the authentication owner.
+- [x] Firebase Google sign-in requests only identity: ID token, email, and profile.
+- [x] Server rejects unverified or non-school email suffixes; it treats `@students.mcpasd.k12.wi.us` as Student and `@mcpasd.k12.wi.us` as Teacher Administrator. Both suffixes are environment-configurable.
+- [x] Teachers automatically administer all clubs and can grant/revoke `is_club_admin` for a student's membership; club admins are limited to their own club.
+- [x] Firebase Admin verification fails closed when its service account is absent.
+- [x] Google Sheets, Google Calendar sync, Calendar OAuth, Calendar token storage, and their tests/services are removed.
+- [x] SQLDelight schema/plugin and local PostgreSQL/Docker configuration are removed.
+- [x] NocoDB REST client is server-only and supports configured clubs, users, memberships, events, RSVPs, attendance, and announcements tables.
+- [x] Built-in calendar no longer offers Google Calendar sync.
 
-## Project foundation
+## Remaining application work
 
-- [x] Kotlin Multiplatform module layout, Compose setup, Ktor server skeleton, and local PostgreSQL Docker configuration.
-- [x] Shared domain models and SQLDelight baseline schema.
-- [x] Versioned SQL schema files, including calendar-sync V2 tables.
-- [ ] Reproducible Gradle build: `./gradlew.bat :server:test` fails because `com.squareup.sqldelight` plugin `2.0.2` is not resolved.
+- [x] Authenticated Ktor REST routes cover all configured NocoDB resources; staff-only writes are enforced server-side.
+- [x] Android, Web, and iOS Firebase auth bridges are in place. Android login is wired to the native activity result; Web uses Firebase popup sign-in; iOS bridges the native Swift sign-in result into Compose.
+- [ ] Replace client sample data with authenticated Ktor API calls during frontend integration.
+- [ ] Complete Web and iOS Firebase sign-in.
+- [ ] Add route, NocoDB-adapter, and client integration tests; add CI.
 
-## Server and data layer
+## Data import contract
 
-- [x] Ktor route registration, Firebase token-verification helpers, CORS, Sheets, shared-calendar, per-student calendar, and CSV-export service classes.
-- [~] CRUD routes: route shapes and validation scaffolding exist, but database reads/writes remain TODO in route handlers.
-- [ ] Transactional PostgreSQL repositories and real persistence for users, clubs, memberships, events, attendance, RSVPs, and announcements.
-- [ ] Wire membership/event mutations to post-commit background sync dispatch for per-student calendar updates.
-- [ ] Implement authenticated authorization-code exchange endpoint for per-student Google Calendar consent.
-
-## Clients
-
-- [~] Compose screens for authentication, clubs, events, calendar, RSVPs, announcements, attendance, and administration are present, but app behavior is largely sample-data-driven.
-- [~] Android Google Sign-In service requests `calendar.events`, but login UI flow is not wired end-to-end to launch/handle sign-in.
-- [ ] Replace sample data/state in `App.kt` with real API-backed state management.
-- [ ] Persisted client-to-server flows for memberships, settings, and screen data updates.
-- [ ] Web Firebase Authentication and Google OAuth implementation.
-- [ ] iOS Firebase Authentication implementation. iOS remains out of initial per-student calendar scope.
-
-## Per-student Google Calendar
-
-- [x] AES-GCM token cipher, V2 token/mapping schema, token-refresh abstraction, Calendar REST client, and sync service with insert/update/delete/RRULE logic.
-- [x] Unit tests for sync cleanup, missing consent, and encryption.
-- [~] `calendar_sync_enabled` exists in schema (`user_calendar_tokens`), but no route/UI wiring yet.
-- [ ] PostgreSQL-backed encrypted token store implementation for `StudentCalendarSyncStore`.
-- [ ] Server-side authorization-code upload/exchange integration with authenticated users.
-- [ ] Persisted student settings toggle and opt-out UI flow.
-- [ ] Trigger sync from committed join/leave/schedule operations only (failure-isolated background path).
-- [ ] Web OAuth scope request (`calendar.events`) and integration-style calendar sync tests.
-
-## Validation and deployment
-
-- [~] Server tests exist but are currently blocked by SQLDelight plugin resolution.
-- [ ] Database, endpoint, Android UI, Web auth, OAuth, and Calendar integration tests.
-- [ ] Production safeguards: explicit CORS origins, rate limiting, monitoring/alerts, and security/privacy review.
-- [ ] Human-owned cloud setup and deployment tasks tracked in `HUMAN_TASKS.md`.
+The annual source is a human-cleaned UTF-8 CSV, imported into NocoDB. Use [data/club-import-template.csv](data/club-import-template.csv). Required columns are `name` and `code`; retain the other template columns where known. Use empty cells for unknown values, not invented data.

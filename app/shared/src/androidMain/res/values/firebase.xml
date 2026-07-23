@@ -1,0 +1,4 @@
+<resources>
+    <!-- Set this to the personal Firebase Web OAuth client ID during human setup. -->
+    <string name="firebase_web_client_id">YOUR_FIREBASE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+</resources>

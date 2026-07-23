@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Represents a user's attendance record for a specific event.
  *
- * Mirrors the `attendance` table in the SQLDelight schema.
+ * Represents attendance data stored in NocoDB.
  * Each row is uniquely identified by the (event_id, user_id) pair,
  * ensuring one attendance record per user per event.
  */

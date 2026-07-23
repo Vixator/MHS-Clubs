@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
  * @param onManageMembers Click handler for managing members
  * @param onCreateEvent Click handler for creating an event
  * @param onManageEvents Click handler for managing events
- * @param onSyncData Click handler for syncing data from Google Sheets
+ * @param onSyncData Click handler for refreshing NocoDB-backed club data
  */
 @Composable
 fun AdminDashboardScreen(
@@ -230,7 +230,7 @@ fun AdminDashboardScreen(
                         contentDescription = "Sync"
                     )
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text("Sync Clubs from Google Sheets")
+                    Text("Refresh Club Data")
                 }
 
                 Button(

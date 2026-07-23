@@ -7,11 +7,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
+import com.precon.mhsclubs.app.shared.R
 import com.precon.mhsclubs.model.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +28,7 @@ import kotlinx.coroutines.tasks.await
  */
 class AndroidAuthService(private val context: Context) : AuthService {
     
-    private val auth: FirebaseAuth = Firebase.auth
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     override val authState: Flow<AuthState> = _authState.asStateFlow()
     
@@ -50,18 +50,14 @@ class AndroidAuthService(private val context: Context) : AuthService {
     
     /**
      * Configures Google Sign-In options.
-     * Requests email, profile, and ID token for Firebase.
-     * Also requests Google Calendar scope for event sync.
+     * Requests only the identity information Firebase needs: email, profile, and ID token.
+     * Calendar permissions are deliberately not requested.
      */
     private fun configureGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(com.precon.mhsclubs.R.string.default_web_client_id))
+            .requestIdToken(context.getString(R.string.firebase_web_client_id))
             .requestEmail()
             .requestProfile()
-            .requestServerAuthCode(context.getString(com.precon.mhsclubs.R.string.default_web_client_id))
-            .requestScopes(
-                com.google.android.gms.common.api.Scope("https://www.googleapis.com/auth/calendar.events")
-            )
             .build()
         
         googleSignInClient = GoogleSignIn.getClient(context, gso)
@@ -133,10 +129,11 @@ class AndroidAuthService(private val context: Context) : AuthService {
      * @return Result containing the signed-in user or an error
      */
     override suspend fun signInWithGoogle(): Result<User> {
-        return Result.failure(UnsupportedOperationException(
-            "signInWithGoogle must be called from an Activity context. " +
-            "Use launchGoogleSignIn() from an Activity."
-        ))
+        val activity = context as? android.app.Activity
+            ?: return Result.failure(IllegalStateException("Android sign-in requires an Activity context"))
+        _authState.value = AuthState.Loading
+        launchGoogleSignIn(activity, REQUEST_CODE)
+        return Result.failure(SignInPendingException())
     }
     
     /**
@@ -167,7 +164,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
         data: android.content.Intent?
     ): Result<User> {
         return try {
-            if (requestCode != 1001) { // Use a constant for the request code
+            if (requestCode != REQUEST_CODE) {
                 return Result.failure(IllegalArgumentException("Invalid request code"))
             }
             
@@ -244,9 +241,14 @@ class AndroidAuthService(private val context: Context) : AuthService {
     }
 }
 
+private const val REQUEST_CODE = 1001
+
 /**
  * Creates an Android-specific AuthService with a context.
  */
 fun createAndroidAuthService(context: Context): AuthService {
     return AndroidAuthService(context)
 }
+
+/** Android callers inject an Activity-backed service; this preserves the common factory contract for previews. */
+actual fun createAuthService(): AuthService = DefaultAuthService()

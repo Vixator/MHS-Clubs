@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,8 +28,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.precon.mhsclubs.auth.AuthService
 import com.precon.mhsclubs.auth.AuthState
+import com.precon.mhsclubs.auth.SignInPendingException
 import com.precon.mhsclubs.model.UserRole
 import org.jetbrains.compose.resources.painterResource
+import kotlinx.coroutines.launch
 
 /**
  * Login screen for the MHS Clubs app.
@@ -48,6 +51,7 @@ fun LoginScreen(
     onError: (String) -> Unit
 ) {
     val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
+    val scope = rememberCoroutineScope()
 
     // Handle auth state changes
     when (val state = authState) {
@@ -68,9 +72,12 @@ fun LoginScreen(
 
     LoginContent(
         isLoading = authState is AuthState.Loading,
-        onSignInClick = { 
-            // On Android, this would launch the Google Sign-In activity
-            // On other platforms, it would call authService.signInWithGoogle()
+        onSignInClick = {
+            scope.launch {
+                authService.signInWithGoogle().exceptionOrNull()
+                    ?.takeUnless { it is SignInPendingException }
+                    ?.let { onError(it.message ?: "Unable to start Google sign-in") }
+            }
         }
     )
 }
@@ -134,7 +141,7 @@ fun LoginContent(
 
         // Domain restriction notice
         Text(
-            text = "MCPASD email required",
+            text = "MCPASD school email required",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

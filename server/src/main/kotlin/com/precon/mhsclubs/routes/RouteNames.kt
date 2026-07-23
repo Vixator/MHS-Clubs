@@ -29,7 +29,7 @@ object RouteNames {
     ) {
         companion object {
             fun <T> ok(data: T?) = ApiResponse(success = true, data = data)
-            fun error(message: String) = ApiResponse(success = false, error = message)
+            fun error(message: String): ApiResponse<Nothing> = ApiResponse(success = false, error = message)
         }
     }
 }

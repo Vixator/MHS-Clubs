@@ -14,6 +14,11 @@ junit = "4.13.2"
 kotlin = "2.4.0"
 kotlin-wrappers = "2026.6.1"
 firebaseAdmin = "9.5.0"
+firebaseBom = "34.4.0"
+firebaseAuth = "23.2.0"
+googleServices = "4.4.2"
+playServicesAuth = "21.3.0"
+coroutines = "1.10.2"
 ktor = "3.5.0"
 logback = "1.5.34"
 material3 = "1.11.0-alpha07"
@@ -37,6 +42,10 @@ compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMul
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 firebaseAdmin = { module = "com.google.firebase:firebase-admin", version.ref = "firebaseAdmin" }
+firebaseBom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebaseAuth = { module = "com.google.firebase:firebase-auth", version.ref = "firebaseAuth" }
+playServicesAuth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+coroutinesPlayServices = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 ktor-serverCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-serverNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
@@ -52,3 +61,4 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+googleServices = { id = "com.google.gms.google-services", version.ref = "googleServices" }

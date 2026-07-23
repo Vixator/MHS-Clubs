@@ -174,15 +174,6 @@ fun EventCard(
                 )
             }
 
-            // Calendar sync status
-            if (event.googleCalendarSynced) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Synced with Google Calendar",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }
@@ -225,7 +216,6 @@ fun EventListScreenPreview() {
                     location = "State Fair Grounds",
                     startTime = Instant.parse("2024-03-15T09:00:00Z"),
                     endTime = Instant.parse("2024-03-15T17:00:00Z"),
-                    googleCalendarSynced = true,
                     createdAt = Instant.parse("2024-01-01T00:00:00Z"),
                     updatedAt = Instant.parse("2024-01-01T00:00:00Z")
                 ),
@@ -237,7 +227,6 @@ fun EventListScreenPreview() {
                     location = "Room 204",
                     startTime = Instant.parse("2024-03-20T15:30:00Z"),
                     endTime = Instant.parse("2024-03-20T17:00:00Z"),
-                    googleCalendarSynced = false,
                     createdAt = Instant.parse("2024-01-01T00:00:00Z"),
                     updatedAt = Instant.parse("2024-01-01T00:00:00Z")
                 )

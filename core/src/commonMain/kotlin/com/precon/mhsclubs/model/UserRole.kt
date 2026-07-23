@@ -1,15 +1,15 @@
 package com.precon.mhsclubs.model
 
 /**
- * User roles determined at sign-in by email domain:
+ * User roles determined at sign-in by the verified Google email domain:
  * - Student: @students.mcpasd.k12.wi.us
- * - Teacher: @mcpasd.k12.wi.us (auto-admin of all clubs)
+ * - Staff: @mcpasd.k12.wi.us (administrator for all clubs)
  *
  * Student Leader is a per-club flag on Membership, not a top-level role.
  */
 enum class UserRole(val label: String) {
     Student("student"),
-    Teacher("teacher");
+    Staff("staff");
 
     companion object {
         fun fromLabel(label: String): UserRole =

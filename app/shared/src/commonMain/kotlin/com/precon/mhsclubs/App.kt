@@ -54,10 +54,10 @@ import kotlinx.datetime.Instant
  * Main app component that handles authentication and navigation.
  */
 @Composable
-fun App() {
+fun App(authServiceOverride: AuthService? = null) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            AppContent()
+            AppContent(authServiceOverride)
         }
     }
 }
@@ -83,9 +83,9 @@ sealed class AppScreen {
  * Main app content with authentication flow and navigation.
  */
 @Composable
-fun AppContent() {
+fun AppContent(authServiceOverride: AuthService? = null) {
     // Create auth service
-    val authService: AuthService = remember { createAuthService() }
+    val authService: AuthService = remember(authServiceOverride) { authServiceOverride ?: createAuthService() }
     
     // Collect auth state
     val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
@@ -108,7 +108,7 @@ fun AppContent() {
                 val userRole = authService.currentUser?.role
                 // Navigate based on user role
                 currentScreen = when (userRole) {
-                    UserRole.Teacher -> AppScreen.AdminDashboard
+                    UserRole.Staff -> AppScreen.AdminDashboard
                     UserRole.Student -> AppScreen.ClubList
                     null -> AppScreen.Login
                 }
@@ -194,7 +194,7 @@ fun AppContent() {
                 authService = authService,
                 onSignedIn = { role ->
                     currentScreen = when (role) {
-                        UserRole.Teacher -> AppScreen.AdminDashboard
+                        UserRole.Staff -> AppScreen.AdminDashboard
                         UserRole.Student -> AppScreen.ClubList
                     }
                 },
@@ -309,7 +309,7 @@ fun AppContent() {
         AttendanceScreen(
             eventTitle = getSampleEvent(selectedEventId!!).title,
             members = getSampleAttendanceMembers(),
-            isTeacher = authService.currentUser?.role == UserRole.Teacher,
+            isTeacher = authService.currentUser?.role == UserRole.Staff,
             onMarkAttendance = { userId, status ->
                 // Handle attendance marking
             }
@@ -359,7 +359,6 @@ private fun getSampleEvents(): List<Event> {
             location = "State Fair Grounds",
             startTime = Instant.parse("2024-03-15T09:00:00Z"),
             endTime = Instant.parse("2024-03-15T17:00:00Z"),
-            googleCalendarSynced = true,
             createdAt = Instant.parse("2024-01-01T00:00:00Z"),
             updatedAt = Instant.parse("2024-01-01T00:00:00Z")
         ),
@@ -371,7 +370,6 @@ private fun getSampleEvents(): List<Event> {
             location = "Room 204",
             startTime = Instant.parse("2024-03-20T15:30:00Z"),
             endTime = Instant.parse("2024-03-20T17:00:00Z"),
-            googleCalendarSynced = false,
             createdAt = Instant.parse("2024-01-01T00:00:00Z"),
             updatedAt = Instant.parse("2024-01-01T00:00:00Z")
         )

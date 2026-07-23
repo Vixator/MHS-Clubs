@@ -87,6 +87,9 @@ sealed class AuthState {
     data class Error(val message: String, val exception: Throwable? = null) : AuthState()
 }
 
+/** A platform has opened its native sign-in UI; the auth-state flow will resolve it. */
+class SignInPendingException : Exception()
+
 /**
  * Default implementation of AuthService for platforms that don't have Firebase.
  * Useful for testing or platforms without Firebase support.

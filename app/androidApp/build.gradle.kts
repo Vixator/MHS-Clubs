@@ -15,6 +15,9 @@ dependencies {
     implementation(projects.app.shared)
 
     implementation(libs.androidx.activity.compose)
+    implementation(libs.firebaseAuth)
+    implementation(libs.playServicesAuth)
+    implementation(libs.coroutinesPlayServices)
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)

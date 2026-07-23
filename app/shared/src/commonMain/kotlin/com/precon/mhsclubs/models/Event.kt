@@ -6,9 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Represents a club event/meeting.
  *
- * Mirrors the `events` table in the SQLDelight schema.
- * Events are always associated with a single club and track
- * scheduling, location, and Google Calendar sync status.
+ * Represents an event stored in NocoDB and displayed in the built-in calendar.
  */
 @Serializable
 data class Event(
@@ -19,7 +17,6 @@ data class Event(
     val location: String?,
     val startTime: Instant,
     val endTime: Instant?,
-    val googleCalendarSynced: Boolean,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

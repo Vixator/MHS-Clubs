@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Represents a user's membership in a club.
  *
- * Mirrors the `memberships` table in the SQLDelight schema.
+ * Represents a membership record stored in NocoDB.
  * A membership tracks how a user is associated with a club,
  * including their role within it and current status.
  */

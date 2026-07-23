@@ -18,8 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,15 +46,13 @@ import kotlinx.datetime.toLocalDateTime
  * @param currentDate The currently selected date
  * @param onDateSelected Callback when a date is selected
  * @param onEventClick Callback when an event is clicked
- * @param onSyncCalendar Callback when the user wants to sync with Google Calendar
  */
 @Composable
 fun CalendarScreen(
     events: List<Event> = emptyList(),
     currentDate: LocalDate = LocalDate(2024, Month.MARCH, 15),
     onDateSelected: (LocalDate) -> Unit = {},
-    onEventClick: (String) -> Unit = {},
-    onSyncCalendar: () -> Unit = {}
+    onEventClick: (String) -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Calendar header
@@ -95,23 +91,6 @@ fun CalendarScreen(
             onDateSelected = onDateSelected,
             onEventClick = onEventClick
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Sync button
-        Button(
-            onClick = onSyncCalendar,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = "Sync"
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text("Sync with Google Calendar")
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -323,7 +302,6 @@ fun CalendarScreenPreview() {
                     location = "Room 204",
                     startTime = Instant.parse("2024-03-15T15:30:00Z"),
                     endTime = Instant.parse("2024-03-15T17:00:00Z"),
-                    googleCalendarSynced = false,
                     createdAt = Instant.parse("2024-01-01T00:00:00Z"),
                     updatedAt = Instant.parse("2024-01-01T00:00:00Z")
                 ),
@@ -335,7 +313,6 @@ fun CalendarScreenPreview() {
                     location = "Library",
                     startTime = Instant.parse("2024-03-20T10:00:00Z"),
                     endTime = Instant.parse("2024-03-20T15:00:00Z"),
-                    googleCalendarSynced = false,
                     createdAt = Instant.parse("2024-01-01T00:00:00Z"),
                     updatedAt = Instant.parse("2024-01-01T00:00:00Z")
                 )
