@@ -31,7 +31,7 @@ node_modules/
 keystore.properties
 
 # Firebase service account keys (e.g. mhs-clubs-*.json)
-mhs-clubs-fa5d9b477aab.json
+mhs-clubs-*.json
 *firebase-adminsdk*.json
 serviceAccountKey.json
 
@@ -41,3 +41,10 @@ serviceAccountKey.json
 # Claude Code automation logs (may contain prompts/tokens)
 runner_log.jsonl
 *.jsonl
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

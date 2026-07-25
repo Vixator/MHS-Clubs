@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Card
@@ -58,6 +60,8 @@ fun ClubListScreen(
     clubs: List<Club> = emptyList(),
     isLoading: Boolean = false,
     onAccountClick: () -> Unit = {},
+    onCalendarClick: () -> Unit = {},
+    onAnnouncementsClick: () -> Unit = {},
     onClubClick: (String) -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -65,6 +69,12 @@ fun ClubListScreen(
         TopAppBar(
             title = { Text("MHS Clubs") },
             actions = {
+                IconButton(onClick = onCalendarClick) {
+                    Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "My club calendar")
+                }
+                IconButton(onClick = onAnnouncementsClick) {
+                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "Announcements")
+                }
                 IconButton(onClick = onAccountClick) {
                     Icon(
                         imageVector = Icons.Default.AccountCircle,

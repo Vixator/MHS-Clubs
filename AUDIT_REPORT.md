@@ -8,7 +8,9 @@ The product uses a personal Firebase/Google Cloud project for Google identity, v
 
 NocoDB is the server-side data backend. Ktor is the only component allowed to hold the NocoDB API token. The annual club spreadsheet is cleaned and imported manually as CSV; there is no live Google Sheets integration.
 
-The calendar is entirely in-app. The product does not request, store, read, or write Google Calendar permissions or data. SQL databases and SQLDelight are not part of the architecture.
+The Ktor server is deployment-containerized via `Dockerfile.server` so infrastructure setup is repeatable and secrets stay server-side.
+
+The calendar is an in-app view. The product does not request or store user Google Calendar permissions, but the server reads shared club calendars using a service-account identity and mirrors events into NocoDB. SQL databases and SQLDelight are not part of the architecture.
 
 ## Security controls
 

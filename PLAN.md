@@ -1,27 +1,32 @@
 # MHS Clubs — Delivery Plan
 
-Status: `[x]` complete, `[~]` partial, `[ ]` pending.
+Status: `[x]` verified in the repository, `[~]` implemented but needs cloud/device validation, `[ ]` pending engineering work.
 
-## New technical direction
+## Architecture
 
-- [x] Personal Firebase/Google Cloud project is the authentication owner.
-- [x] Firebase Google sign-in requests only identity: ID token, email, and profile.
-- [x] Server rejects unverified or non-school email suffixes; it treats `@students.mcpasd.k12.wi.us` as Student and `@mcpasd.k12.wi.us` as Teacher Administrator. Both suffixes are environment-configurable.
-- [x] Teachers automatically administer all clubs and can grant/revoke `is_club_admin` for a student's membership; club admins are limited to their own club.
-- [x] Firebase Admin verification fails closed when its service account is absent.
-- [x] Google Sheets, Google Calendar sync, Calendar OAuth, Calendar token storage, and their tests/services are removed.
-- [x] SQLDelight schema/plugin and local PostgreSQL/Docker configuration are removed.
-- [x] NocoDB REST client is server-only and supports configured clubs, users, memberships, events, RSVPs, attendance, and announcements tables.
-- [x] Built-in calendar no longer offers Google Calendar sync.
+- [x] Firebase Authentication supplies Google identity; Ktor verifies Firebase ID tokens and accepts only configured student/staff school domains.
+- [x] NocoDB is the server-side data backend. Clients never receive the NocoDB token or call NocoDB directly.
+- [x] The canonical club ID is NocoDB `clubs.Id`; all `club_id` fields use that ID.
+- [x] Google Calendar is read by a server service account and mirrored into NocoDB events. No student/teacher Calendar OAuth or token storage exists.
+- [x] The server is containerized by `Dockerfile.server`; there is no PostgreSQL/SQL/SQLite/SQLDelight runtime component.
+- [x] The server auto-loads repository-root `.env` for `:server:run`, resolves relative service-account paths from it, and has configurable CORS via `WEB_ALLOWED_HOST`.
+- [x] Kotlin/JS dev server serves processed Web resources on port 8081; `/` was verified as HTTP 200 locally.
 
-## Remaining application work
+## Application integration
 
-- [x] Authenticated Ktor REST routes cover all configured NocoDB resources; staff-only writes are enforced server-side.
-- [x] Android, Web, and iOS Firebase auth bridges are in place. Android login is wired to the native activity result; Web uses Firebase popup sign-in; iOS bridges the native Swift sign-in result into Compose.
-- [ ] Replace client sample data with authenticated Ktor API calls during frontend integration.
-- [ ] Complete Web and iOS Firebase sign-in.
-- [ ] Add route, NocoDB-adapter, and client integration tests; add CI.
+- [x] Android and Web event/announcement adapters call authenticated `/api/my/events` and `/api/my/announcements`.
+- [ ] Add a server-backed club directory contract: list/search clubs, retrieve a detail, and join by code or ID while preserving authorization boundaries.
+- [ ] Extend `ClubContentApi` and `App.kt` state/UI to use that contract; remove sample club/membership data from browse/detail/join flows.
+- [ ] Replace remaining sample event-detail, attendance, and other content paths with authenticated APIs.
+- [~] Build and test native iOS Firebase configuration on macOS (owner action required; see [HUMAN_TASKS.md](HUMAN_TASKS.md)).
+- [ ] Add route, NocoDB-adapter, and client integration tests plus CI.
 
-## Data import contract
+## Deployment and operations
 
-The annual source is a human-cleaned UTF-8 CSV, imported into NocoDB. Use [data/club-import-template.csv](data/club-import-template.csv). Required columns are `name` and `code`; retain the other template columns where known. Use empty cells for unknown values, not invented data.
+- [~] Cloud credentials/NocoDB schema and local health checks are reported complete in the session handoff but cannot be independently verified from source control.
+- [ ] Complete public Web/API deployment, secret mounting, Firebase authorized-domain configuration, and role-policy smoke tests. These owner tasks are listed in [HUMAN_TASKS.md](HUMAN_TASKS.md).
+- [ ] Establish NocoDB backups and annual data review/import.
+
+## Schema reference
+
+The exact NocoDB table contract is maintained in [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md#nocodb-schema-contract). Exact select values are significant: membership `pending|active|revoked`; membership role `member|advisor|student_leader`; RSVP `yes|no|maybe`; attendance `present|absent|late`; user role `Student|Teacher`.

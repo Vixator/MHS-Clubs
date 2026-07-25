@@ -1,11 +1,12 @@
 package com.precon.mhsclubs.firebase
 
+import com.precon.mhsclubs.environment
+import com.precon.mhsclubs.resolveEnvironmentPath
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import org.slf4j.LoggerFactory
-import java.io.File
 import java.io.FileInputStream
 
 /**
@@ -27,15 +28,14 @@ object FirebaseConfig {
      * Path to the Firebase service account JSON file.
      */
     val serviceAccountPath: String?
-        get() = System.getenv("FIREBASE_SERVICE_ACCOUNT")
+        get() = environment("FIREBASE_SERVICE_ACCOUNT")
             ?: System.getProperty("firebase.serviceAccount")
-            ?: null
 
     /**
      * Firebase project ID from environment or properties.
      */
     val projectId: String
-        get() = System.getenv("FIREBASE_PROJECT_ID")
+        get() = environment("FIREBASE_PROJECT_ID")
             ?: System.getProperty("firebase.projectId")
             ?: ""
 
@@ -58,7 +58,7 @@ object FirebaseConfig {
 
         val serviceAccount = serviceAccountPath
         
-        if (serviceAccount == null || !File(serviceAccount).exists()) {
+        if (serviceAccount == null || !resolveEnvironmentPath(serviceAccount).isFile) {
             log.warn(
                 "Firebase service account file not found. " +
                 "Set FIREBASE_SERVICE_ACCOUNT environment variable or " +
@@ -70,7 +70,7 @@ object FirebaseConfig {
         }
 
         return try {
-            val credentials = GoogleCredentials.fromStream(FileInputStream(serviceAccount))
+            val credentials = GoogleCredentials.fromStream(FileInputStream(resolveEnvironmentPath(serviceAccount)))
             val options = FirebaseOptions.builder()
                 .setCredentials(credentials)
                 .setProjectId(projectId)

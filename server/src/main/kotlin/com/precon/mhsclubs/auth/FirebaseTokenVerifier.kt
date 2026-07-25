@@ -1,5 +1,6 @@
 package com.precon.mhsclubs.auth
 
+import com.precon.mhsclubs.environment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseToken
 import com.precon.mhsclubs.firebase.FirebaseConfig
@@ -47,7 +48,7 @@ class FirebaseTokenVerifier(
     private val staffDomain get() = domainFromEnvironment("STAFF_EMAIL_DOMAIN", "mcpasd.k12.wi.us")
 
     private fun domainFromEnvironment(name: String, fallback: String) =
-        "@${(System.getenv(name) ?: fallback).trim().lowercase().removePrefix("@")}"
+        "@${(environment(name) ?: fallback).trim().lowercase().removePrefix("@")}"
 
     private fun normalizedEmail(email: String) = email.trim().lowercase()
 }

@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
+
+COPY gradlew gradlew
+COPY gradle gradle
+COPY settings.gradle.kts settings.gradle.kts
+COPY build.gradle.kts build.gradle.kts
+COPY gradle.properties gradle.properties
+COPY app app
+COPY core core
+COPY server server
+
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && ./gradlew --no-daemon :server:installDist
+
+FROM eclipse-temurin:21-jre AS runtime
+WORKDIR /app
+
+RUN addgroup --system mhsclubs && adduser --system --ingroup mhsclubs mhsclubs
+
+COPY --from=build /workspace/server/build/install/server/ /app/
+
+ENV PORT=8080
+EXPOSE 8080
+
+USER mhsclubs
+ENTRYPOINT ["/app/bin/server"]

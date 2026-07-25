@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import com.precon.mhsclubs.auth.AndroidAuthService
+import com.precon.mhsclubs.data.AndroidClubContentApi
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -17,9 +18,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         authService = AndroidAuthService(this)
+        val clubContentApi = AndroidClubContentApi(getString(R.string.mhs_clubs_api_base_url))
 
         setContent {
-            App(authService)
+            App(authService, clubContentApi)
         }
     }
 

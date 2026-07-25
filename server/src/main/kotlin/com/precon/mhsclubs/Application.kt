@@ -5,6 +5,9 @@ import com.precon.mhsclubs.auth.UserIdentity
 import com.precon.mhsclubs.firebase.FirebaseConfig
 import com.precon.mhsclubs.services.NocoDbClient
 import com.precon.mhsclubs.services.NocoDbException
+import com.precon.mhsclubs.services.GoogleCalendarSyncService
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -13,9 +16,10 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.net.URI
 
 fun main() {
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    val port = environment("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
@@ -23,13 +27,11 @@ fun Application.module() {
     FirebaseConfig.initialize()
     val verifier = FirebaseTokenVerifier(FirebaseConfig.projectId)
     val nocoDb = NocoDbClient()
+    val calendarSync = GoogleCalendarSyncService(nocoDb)
 
     install(CORS) {
-        allowHost("localhost:*", schemes = listOf("http", "https"))
-        allowHost("*.mcpasd.k12.wi.us", schemes = listOf("https"))
-        System.getenv("WEB_ALLOWED_HOST")
-            ?.takeIf { it.isNotBlank() }
-            ?.let { allowHost(it, schemes = listOf("https")) }
+        allowHost("localhost", schemes = listOf("http", "https"))
+        configuredWebHost()?.let { allowHost(it, schemes = listOf("https")) }
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
         allowMethod(HttpMethod.Get)
@@ -42,11 +44,31 @@ fun Application.module() {
         get("/") { call.respondText("MHS Clubs API") }
         get("/health") {
             call.respondText(
-                """{"status":"ok","firebaseInitialized":${FirebaseConfig.isInitialized()},"nocoDbConfigured":${nocoDb.isConfigured()}}""",
+                """{"status":"ok","firebaseInitialized":${FirebaseConfig.isInitialized()},"nocoDbConfigured":${nocoDb.isConfigured()},"googleCalendarConfigured":${calendarSync.isConfigured()}}""",
                 ContentType.Application.Json
             )
         }
         route("/api") {
+            /** Returns only content for clubs in which the signed-in student is active. */
+            get("/my/{resource}") {
+                val identity = call.requireIdentity(verifier) ?: return@get
+                val resource = call.parameters["resource"].orEmpty()
+                if (resource !in studentOwnedResources) return@get call.respondBadRequest("Unsupported student resource")
+                call.respondNoco {
+                    val clubIds = nocoDb.activeClubIds(identity.uid)
+                    if (resource == "events" && clubIds.isNotEmpty() && calendarSync.isConfigured()) calendarSync.sync(clubIds)
+                    nocoDb.recordsForClubs(resource, clubIds)
+                }
+            }
+            /** Staff can force a pull immediately after changing a Google Calendar event. */
+            post("/calendar/sync") {
+                val identity = call.requireIdentity(verifier) ?: return@post
+                if (!verifier.isStaff(identity)) return@post call.respondForbidden()
+                call.respondNoco {
+                    val result = calendarSync.sync()
+                    """{"calendars":${result.calendars},"created":${result.created},"updated":${result.updated}}"""
+                }
+            }
             post("/memberships/join") {
                 val identity = call.requireIdentity(verifier) ?: return@post
                 val clubId = call.extractRequiredId("clubId") ?: return@post
@@ -106,13 +128,13 @@ fun Application.module() {
             get("/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
                 val resource = call.parameters["resource"].orEmpty()
-                if (resource !in studentReadableResources && !verifier.isStaff(identity)) return@get call.respondForbidden()
+                if (!verifier.isStaff(identity)) return@get call.respondForbidden()
                 call.respondNoco { nocoDb.listRecords(resource) }
             }
             get("/{resource}/{id}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
                 val resource = call.parameters["resource"].orEmpty()
-                if (resource !in studentReadableResources && !verifier.isStaff(identity)) return@get call.respondForbidden()
+                if (!verifier.isStaff(identity)) return@get call.respondForbidden()
                 call.respondNoco { nocoDb.recordById(resource, call.parameters["id"].orEmpty()) }
             }
             post("/{resource}") {
@@ -131,11 +153,54 @@ fun Application.module() {
                 call.respondNoco { nocoDb.deleteRecord(call.parameters["resource"].orEmpty(), call.parameters["id"].orEmpty()) }
             }
         }
+
+        /**
+         * Receives a Google Apps Script form-submit relay. The script must send
+         * `Authorization: Bearer <FORM_INGEST_SECRET>` and JSON with club_name (or club_id or
+         * calendar_id), title, message_body, and optional links.
+         */
+        post("/integrations/forms/announcements") {
+            val secret = environment("FORM_INGEST_SECRET").orEmpty()
+            val supplied = call.request.headers[HttpHeaders.Authorization]
+                ?.removePrefix("Bearer ")?.trim().orEmpty()
+            if (secret.isBlank() || supplied != secret) {
+                return@post call.respondText("""{"success":false,"error":"Unauthorized form relay"}""", ContentType.Application.Json, HttpStatusCode.Unauthorized)
+            }
+            val payload = try { JsonParser.parseString(call.receiveText()).asJsonObject } catch (_: Exception) {
+                return@post call.respondBadRequest("Form payload must be a JSON object")
+            }
+            val clubId = payload.string("club_id", "clubId")
+                ?: payload.string("calendar_id", "calendarId")?.let(nocoDb::findClubIdByCalendar)
+                ?: payload.string("club_name", "clubName")?.let(nocoDb::findClubIdByName)
+                ?: return@post call.respondBadRequest("A valid club_name, club_id, or calendar_id is required")
+            val content = listOfNotNull(payload.string("message_body", "messageBody", "content"), payload.string("links"))
+                .joinToString("\n\n").trim()
+            if (content.isBlank()) return@post call.respondBadRequest("message_body or links is required")
+            val announcement = JsonObject().apply {
+                addProperty("club_id", clubId)
+                addProperty("title", payload.string("title") ?: "Club announcement")
+                addProperty("content", content)
+                addProperty("author_name", payload.string("author_name", "authorName") ?: "Club staff")
+                addProperty("is_active", true)
+            }
+            call.respondNoco(HttpStatusCode.Created) { nocoDb.createRecord("announcements", announcement.toString()) }
+        }
     }
 }
 
-private val studentReadableResources = setOf("clubs", "events", "announcements")
+private val studentOwnedResources = setOf("events", "announcements")
 private val clubManagedResources = setOf("memberships", "events", "announcements", "attendance")
+
+private fun configuredWebHost(): String? = environment("WEB_ALLOWED_HOST")
+    ?.trim()
+    ?.takeIf { it.isNotEmpty() }
+    ?.let { raw ->
+        val host = if ("://" in raw) URI(raw).host else raw
+        require(!host.isNullOrBlank() && host.matches(Regex("(?:\\*\\.)?[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"))) {
+            "WEB_ALLOWED_HOST must be a hostname, optionally prefixed with *."
+        }
+        host.lowercase()
+    }
 
 private suspend fun ApplicationCall.requireIdentity(verifier: FirebaseTokenVerifier): UserIdentity? {
     val token = request.headers[HttpHeaders.Authorization]
@@ -217,4 +282,8 @@ private fun String.withClubId(clubId: String): String? {
     return body.removeSuffix("}").trimEnd().let { prefix ->
         if (prefix == "{") """{"club_id":"$clubId"}""" else "$prefix,\"club_id\":\"$clubId\"}"
     }
+}
+
+private fun JsonObject.string(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
+    get(name)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }
 }

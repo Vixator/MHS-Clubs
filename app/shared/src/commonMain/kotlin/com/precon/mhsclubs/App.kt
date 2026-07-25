@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.precon.mhsclubs.auth.AuthService
 import com.precon.mhsclubs.auth.AuthState
 import com.precon.mhsclubs.auth.createAuthService
+import com.precon.mhsclubs.data.ClubContentApi
 import com.precon.mhsclubs.model.UserRole
 import com.precon.mhsclubs.screens.admin.AdminDashboardScreen
 import com.precon.mhsclubs.screens.announcements.AnnouncementListScreen
@@ -54,10 +55,10 @@ import kotlinx.datetime.Instant
  * Main app component that handles authentication and navigation.
  */
 @Composable
-fun App(authServiceOverride: AuthService? = null) {
+fun App(authServiceOverride: AuthService? = null, clubContentApi: ClubContentApi? = null) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            AppContent(authServiceOverride)
+            AppContent(authServiceOverride, clubContentApi)
         }
     }
 }
@@ -83,7 +84,7 @@ sealed class AppScreen {
  * Main app content with authentication flow and navigation.
  */
 @Composable
-fun AppContent(authServiceOverride: AuthService? = null) {
+fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubContentApi? = null) {
     // Create auth service
     val authService: AuthService = remember(authServiceOverride) { authServiceOverride ?: createAuthService() }
     
@@ -100,6 +101,20 @@ fun AppContent(authServiceOverride: AuthService? = null) {
     var showEventDetail by remember { mutableStateOf(false) }
     var showRsvp by remember { mutableStateOf(false) }
     var showAttendance by remember { mutableStateOf(false) }
+    var syncedEvents by remember { mutableStateOf<List<Event>?>(null) }
+    var syncedAnnouncements by remember { mutableStateOf<List<com.precon.mhsclubs.screens.announcements.Announcement>?>(null) }
+
+    // Android provides this API adapter. Preview/Web/iOS preserve their existing sample content until
+    // their platform-specific adapters are configured.
+    LaunchedEffect(currentScreen, authState, clubContentApi) {
+        val api = clubContentApi ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: return@LaunchedEffect
+        when (currentScreen) {
+            AppScreen.Calendar, AppScreen.EventList -> syncedEvents = runCatching { api.loadEvents(token) }.getOrNull()
+            AppScreen.Announcements -> syncedAnnouncements = runCatching { api.loadAnnouncements(token) }.getOrNull()
+            else -> Unit
+        }
+    }
     
     // Handle auth state changes
     LaunchedEffect(authState) {
@@ -207,7 +222,9 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         AppScreen.ClubList -> {
             ClubListScreen(
                 onAccountClick = navigateToAccount,
-                onClubClick = navigateToClubDetail
+                onClubClick = navigateToClubDetail,
+                onCalendarClick = navigateToCalendar,
+                onAnnouncementsClick = navigateToAnnouncements
             )
         }
         
@@ -236,7 +253,7 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         
         AppScreen.EventList -> {
             EventListScreen(
-                events = getSampleEvents(),
+                events = syncedEvents ?: if (clubContentApi == null) getSampleEvents() else emptyList(),
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
@@ -246,7 +263,7 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         
         AppScreen.Calendar -> {
             CalendarScreen(
-                events = getSampleEvents(),
+                events = syncedEvents ?: if (clubContentApi == null) getSampleEvents() else emptyList(),
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
@@ -277,7 +294,7 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         
         AppScreen.Announcements -> {
             AnnouncementListScreen(
-                announcements = getSampleAnnouncements(),
+                announcements = syncedAnnouncements ?: if (clubContentApi == null) getSampleAnnouncements() else emptyList(),
                 onAnnouncementClick = { /* Show announcement detail */ }
             )
         }

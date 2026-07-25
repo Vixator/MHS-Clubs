@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "791091965723",
+    "project_id": "mhs-clubs",
+    "storage_bucket": "mhs-clubs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:791091965723:android:9093762a82de4bddb8adbe",
+        "android_client_info": {
+          "package_name": "com.precon.mhsclubs"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "791091965723-0ab0ek2pd6mlpnhaqjtpdifh2pls62jn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB87Bbzr94ojgU2db40eidlTLj8Bd3LoSk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "791091965723-0ab0ek2pd6mlpnhaqjtpdifh2pls62jn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

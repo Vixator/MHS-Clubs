@@ -1,45 +1,28 @@
-# MHS Clubs — Human Setup Checklist
+# MHS Clubs — Remaining Human, Credential, and Deployment Tasks
 
-## Personal Firebase and Google Cloud
+Last reviewed: 2026-07-24
 
-- [ ] Create a personal Firebase project and its linked personal Google Cloud project.
-- [ ] Enable **Google** in Firebase Authentication. Do not configure an organization-only hosted-domain restriction.
-- [ ] Add Android, Web, and iOS applications to Firebase.
-- [ ] Set `firebase_web_client_id` in `app/shared/src/androidMain/res/values/firebase.xml` to the Firebase Web OAuth client ID, then configure the Android SHA-1/SHA-256 fingerprints in Firebase.
-- [ ] Replace `app/webApp/src/webMain/resources/firebase-config.js` placeholders with the Firebase Web app configuration and authorize the deployed Web domain in Firebase Authentication.
-- [ ] In Xcode, add the FirebaseAuth, FirebaseCore, and GoogleSignIn packages; add `GoogleService-Info.plist` to the iOS target and its reversed-client-ID URL scheme to `Info.plist`.
-- [ ] Create a Firebase Admin service account key and place it only in your local/deployment secret manager. Set `FIREBASE_SERVICE_ACCOUNT` to its absolute runtime path and `FIREBASE_PROJECT_ID` to the project ID.
-- [ ] Add the production web origin and OAuth redirect URIs to the personal Google Cloud OAuth client when the Web client is deployed.
+This list intentionally excludes code work. Firebase, NocoDB, the local `.env`, both service-account keys, Android registration, the Web Firebase configuration, and Calendar sharing are reported complete in the session handoff. Their cloud-side state cannot be independently verified from this repository.
 
-## School-domain policy
+## Before production
 
-- [ ] Set `STUDENT_EMAIL_DOMAIN=students.mcpasd.k12.wi.us` and `STAFF_EMAIL_DOMAIN=mcpasd.k12.wi.us` in the server/deployment environment.
-- [ ] Test one student, one teacher, and one external Google account. Firebase may authenticate all three, but only the first two verified school identities may use the app; every teacher must receive global administration access.
+- [ ] Choose and deploy a public HTTPS host for the Web app and a long-lived container host for the Ktor API; build the API image with `docker build -f Dockerfile.server -t mhs-clubs-server .`.
+- [ ] Put all server variables from `.env` into the deployment secret manager, including the seven `NOCODB_*_TABLE` IDs and `FORM_INGEST_SECRET` when Forms are enabled. Mount both service-account JSON files as secret files; do not commit them or expose them to clients.
+- [ ] Set `WEB_ALLOWED_HOST` to the deployed Web hostname. The server accepts a hostname or `*.example.org` (without a path); localhost remains allowed for development.
+- [ ] Add the deployed Web domain to Firebase Authentication's authorized domains and add the corresponding OAuth redirect/origin configuration in Google Cloud.
+- [ ] Request the deployed `/health` endpoint and verify Firebase, NocoDB, and Google Calendar each report configured. Then test student, teacher, and external Google accounts against the deployed app.
+- [ ] Establish NocoDB backups and a yearly club-data import/review process.
 
-## NocoDB
+## Platform work that requires the project owner
 
-- [ ] Create or choose a NocoDB workspace/project and create a `clubs` table.
-- [ ] Import the cleaned annual CSV using [data/club-import-template.csv](data/club-import-template.csv) as the column contract.
-- [ ] Copy the `clubs` table ID from NocoDB and set `NOCODB_CLUBS_TABLE`.
-- [ ] Create a dedicated server API token with only the required project/table permissions; set `NOCODB_API_TOKEN` and `NOCODB_BASE_URL` as server secrets.
-- [ ] Create tables for users, memberships, events, RSVPs, attendance, and announcements, then set all seven `NOCODB_*_TABLE` values.
-- [ ] Make the `memberships` table include `firebase_uid`, `club_id`, `status`, and Boolean `is_club_admin` columns. Teachers elevate/revoke a student through `PUT /api/memberships/{membershipId}/club-admin` with `{"enabled":true|false}`.
-- [ ] Use `club_id` on events, announcements, and attendance records; club-admin routes enforce the club in their URL.
-- [ ] Establish NocoDB backups and a yearly import/review process before replacing production club data.
+- [ ] Complete iOS Firebase native setup on macOS: add FirebaseAuth, FirebaseCore, and GoogleSignIn; add `GoogleService-Info.plist`; configure the reversed-client-ID URL scheme; then build/test the iOS target.
+- [ ] For a physical Android-device local test, select this computer's LAN API URL, allow TCP 8080 through Windows Firewall, and keep the phone and computer on the same Wi-Fi. (`10.0.2.2` is only for an emulator.)
 
-## Ktor API server
+## Optional Google Form announcement relay
 
-- [ ] Deploy the `server` module to a host that can run a long-lived JVM/Kotlin service. This is the authorization layer between the apps and NocoDB; do not give the iOS, Android, or Web apps the NocoDB API token.
-- [ ] For a local smoke test, set the required environment variables and run `./gradlew.bat :server:run`. Confirm `http://localhost:8080/health` returns `"firebaseInitialized":true` and `"nocoDbConfigured":true`.
-- [ ] In the deployment secret manager, set `FIREBASE_PROJECT_ID`, `STUDENT_EMAIL_DOMAIN`, `STAFF_EMAIL_DOMAIN`, `NOCODB_BASE_URL`, `NOCODB_API_TOKEN`, and every `NOCODB_*_TABLE` value. Never commit or expose these values to a client application.
-- [ ] Store the Firebase Admin service-account JSON as a deployment secret file, mount it at runtime, and set `FIREBASE_SERVICE_ACCOUNT` to its mounted absolute path. Do not put the JSON contents in source control or a client-accessible environment variable.
-- [ ] Let the hosting platform provide `PORT`; Ktor listens on `PORT` and uses `8080` only when it is absent for local development.
-- [ ] Set `WEB_ALLOWED_HOST` to the production Web app's hostname only (for example, `clubs.example.org`), without `https://` or a path. This permits browser requests from that one deployed site; add its domain to Firebase Authentication's authorized domains as well.
-- [ ] Configure HTTPS and a stable API hostname, then make that hostname available to the Android, iOS, and Web clients when their API integration is enabled.
-- [ ] After deployment, request `https://<api-host>/health`, verify it reports both services as configured, then sign in with a student, teacher, and external account to confirm the domain and role policy.
+- [ ] If announcement forms are wanted, create the form, put [google-form-announcement.gs](scripts/google-form-announcement.gs) in its Apps Script project, configure its Script Properties, and install the submit trigger.
+- [ ] Give the relay a reachable HTTPS API URL; Apps Script cannot call localhost or a LAN-only server.
 
-## Explicitly not required
+## Not required
 
-- No Google Calendar API, Calendar OAuth scopes, calendar token storage, or Google Calendar consent screen review.
-- No Google Sheets API/service account.
-- No SQLite, PostgreSQL, SQLDelight migration, Docker database, or database credentials.
+- No Google Calendar OAuth, Calendar token storage, Google Sheets API, PostgreSQL, SQLite, SQLDelight migration, or Docker database.

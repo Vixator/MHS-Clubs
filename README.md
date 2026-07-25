@@ -2,26 +2,26 @@
 
 Kotlin Multiplatform club directory for Android, iOS, and Web, with a Ktor API.
 
+## Current state
+
+The API is a Docker-deployable, server-only adapter for Firebase, NocoDB, and read-only Google Calendar sync. It has no PostgreSQL, SQLite, SQLDelight, or database container. Web and Android load authenticated events and announcements; Web club browse/detail/join screens still use sample data and are a known engineering gap.
+
+The Kotlin/JS dev server is on port 8081 and serves the processed Web resources correctly. Run `./gradlew.bat :app:webApp:jsBrowserDevelopmentRun`, then open `http://localhost:8081/`.
+
 ## Architecture
 
-Google sign-in is provided by Firebase Authentication in a personal Firebase/Google Cloud project. Firebase may show any Google account in its account picker. After Firebase verifies the ID token, the Ktor server accepts only verified school addresses:
+Firebase Google sign-in chooses an account, then Ktor verifies the Firebase ID token and enforces `STUDENT_EMAIL_DOMAIN` and `STAFF_EMAIL_DOMAIN`. Clients call Ktor only; Ktor holds the NocoDB API token. NocoDB `clubs.Id` is the canonical ID stored in every related `club_id` field.
 
-- `@students.mcpasd.k12.wi.us` → student
-- `@mcpasd.k12.wi.us` → teacher administrator
-
-The domains are configurable through `STUDENT_EMAIL_DOMAIN` and `STAFF_EMAIL_DOMAIN`. There is no organization-owned OAuth dependency, hosted-domain Google restriction, Firebase custom-claim admin role, Calendar permission, Google Calendar API, or Google Sheets API.
-
-NocoDB is the data backend. Clients call Ktor; only Ktor holds the NocoDB API token and calls NocoDB's REST API. Teachers administer every club and can set a student's membership `is_club_admin` flag, granting that student administration of that club only.
-
-The app's calendar is an in-app view of club events. It never reads, writes, or requests access to a user's Google Calendar.
+A server service account reads each `clubs.Calendar` Google Calendar and mirrors events to NocoDB. Students and teachers do not authorize Calendar access. The Calendar scope is read-only.
 
 ## Local configuration
 
-Copy the variable names in `.env` into your local environment or deployment secret manager. Required server values are:
+The server automatically finds a `.env` file by walking upward from its working directory. This means repository-root `.env` works with `./gradlew.bat :server:run`. System environment variables take precedence. Relative `FIREBASE_SERVICE_ACCOUNT` and `GOOGLE_CALENDAR_SERVICE_ACCOUNT` paths resolve relative to that `.env` file; absolute paths also work.
 
 ```text
 FIREBASE_PROJECT_ID
-FIREBASE_SERVICE_ACCOUNT=/absolute/path/to/firebase-service-account.json
+FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
+GOOGLE_CALENDAR_SERVICE_ACCOUNT=./calendar-reader-service-account.json
 STUDENT_EMAIL_DOMAIN=students.mcpasd.k12.wi.us
 STAFF_EMAIL_DOMAIN=mcpasd.k12.wi.us
 PORT=8080
@@ -35,20 +35,24 @@ NOCODB_EVENTS_TABLE=...
 NOCODB_RSVPS_TABLE=...
 NOCODB_ATTENDANCE_TABLE=...
 NOCODB_ANNOUNCEMENTS_TABLE=...
+FORM_INGEST_SECRET=...
 ```
 
-`PORT` is supplied by most cloud hosts and defaults to `8080` locally. Set `WEB_ALLOWED_HOST` to the deployed Web app's hostname (without scheme or path) so its browser requests are permitted by CORS.
+`WEB_ALLOWED_HOST` accepts a hostname such as `clubs.example.org` or a leading-wildcard hostname such as `*.example.org`; leave it blank for local-only use. Localhost is allowed for both HTTP and HTTPS. Never commit service-account JSON or the NocoDB token.
 
-Never commit the Firebase service-account JSON or NocoDB API token. The server fails closed for protected routes if Firebase Admin is not initialized.
+## NocoDB contract
 
-## Club data import
+The exact table/column/enumeration contract is in [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md#nocodb-schema-contract). It is important that `club_id` is the `clubs.Id` value and that select values retain their exact case/spelling.
 
-Export or prepare a UTF-8 CSV using [club-import-template.csv](data/club-import-template.csv), then import it into NocoDB's `clubs` table. A clean CSV is better than a live spreadsheet connection because the source changes annually and needs human cleanup first.
+## Commands
 
-## Development commands
-
-- Server tests: `./gradlew.bat :server:test`
-- Android build: `./gradlew.bat :app:androidApp:assembleDebug`
+- Server tests: `./gradlew.bat :server:test --offline`
 - Server: `./gradlew.bat :server:run`
+- Web dev server: `./gradlew.bat :app:webApp:jsBrowserDevelopmentRun`
+- Android build: `./gradlew.bat :app:androidApp:assembleDebug --offline`
+- Build server image: `docker build -f Dockerfile.server -t mhs-clubs-server .`
+- Run server image: `docker run --rm -p 8080:8080 --env-file .env -v /absolute/path/firebase.json:/run/secrets/firebase.json:ro -v /absolute/path/calendar.json:/run/secrets/calendar.json:ro -e FIREBASE_SERVICE_ACCOUNT=/run/secrets/firebase.json -e GOOGLE_CALENDAR_SERVICE_ACCOUNT=/run/secrets/calendar.json mhs-clubs-server`
 
-Platform setup is in [HUMAN_TASKS.md](HUMAN_TASKS.md). The server, Android, and Web compile successfully; iOS must be built on macOS after its Firebase packages are added.
+## Deployment handoff
+
+Owner-only credential, cloud setup, platform, and deployment work is in [HUMAN_TASKS.md](HUMAN_TASKS.md). Known code gaps are separate in [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md#known-code-gaps).

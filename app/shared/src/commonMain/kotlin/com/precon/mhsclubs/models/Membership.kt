@@ -29,11 +29,11 @@ data class Membership(
  */
 sealed class MembershipRole(val value: String) {
     object Member : MembershipRole("member")
-    object Officer : MembershipRole("officer")
+    object Advisor : MembershipRole("advisor")
     object StudentLeader : MembershipRole("student_leader")
 
     companion object {
-        private val BY_VALUE = listOf(Member, Officer, StudentLeader).associateBy(MembershipRole::value)
+        private val BY_VALUE = listOf(Member, Advisor, StudentLeader).associateBy(MembershipRole::value)
 
         fun fromValue(value: String): MembershipRole =
             BY_VALUE[value] ?: throw IllegalArgumentException("Unknown MembershipRole: $value")

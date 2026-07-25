@@ -57,6 +57,9 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+            implementation(libs.ktor.clientCore)
+            implementation(libs.ktor.clientJs)
+            implementation(libs.serializationJson)
         }
     }
 }

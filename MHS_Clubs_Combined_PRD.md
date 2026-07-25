@@ -24,7 +24,7 @@ The deployment settings `STUDENT_EMAIL_DOMAIN` and `STAFF_EMAIL_DOMAIN` control 
 
 The pre-existing annual club spreadsheet is not queried by the app. A person cleans it and provides a UTF-8 CSV using [data/club-import-template.csv](data/club-import-template.csv); that file is imported into NocoDB. Empty values should remain empty rather than being guessed.
 
-Students see club meetings and events in the application’s built-in calendar. The product does not request Google Calendar scopes, does not perform Google Calendar OAuth, and does not read, create, update, or delete external calendar events.
+Students see club meetings and events in the application’s built-in calendar. The product does not request Google Calendar scopes from student/teacher clients and does not perform user Google Calendar OAuth. A server-side Google service account reads each club's shared Google Calendar and mirrors safe event data into NocoDB for app display.
 
 ## Data backend and data model
 
@@ -32,13 +32,13 @@ NocoDB is the source of truth, exposed only through its REST API to Ktor. Client
 
 Required NocoDB tables are:
 
-- `clubs`: name, code, description, category, meeting day/time/location, advisor details, active status.
+- `clubs`: NocoDB primary key (`Id`/`id`) as canonical club identifier, plus name, code, description, category, meeting day/time/location, advisor details, active status, and `Calendar` (real Google Calendar ID).
 - `users`: Firebase UID, verified email, display name, role, avatar URL, timestamps.
 - `memberships`: `firebase_uid`, `club_id`, status, and Boolean `is_club_admin` for teacher-assigned club administration.
-- `events`: club, title, description, location, start/end times.
+- `events`: `club_id` (clubs `Id`/`id`), `google_event_id`, title, description, location, start/end times, and update timestamp.
 - `rsvps`, `attendance`, and `announcements`.
 
-No SQLite, PostgreSQL, SQLDelight, database container, SQL migration, Google Sheets API, or Calendar API is in scope.
+No SQLite, PostgreSQL, SQLDelight, database container, SQL migration, Google Sheets API, or client-side Calendar OAuth integration is in scope.
 
 ## Core features
 
@@ -53,9 +53,10 @@ No SQLite, PostgreSQL, SQLDelight, database container, SQL migration, Google She
 - Verify all Firebase ID tokens on the server; fail protected requests closed when Firebase Admin is missing.
 - Enforce role decisions on the server, never from client-supplied email or role values.
 - Store Firebase service-account credentials and NocoDB tokens only in deployment secrets.
+- Deploy Ktor from the versioned server container (`Dockerfile.server`) so runtime setup is consistent across environments.
 - Use TLS between clients, Ktor, Firebase, and NocoDB.
 - Maintain NocoDB backup/restore procedures and review annual CSV imports before publishing them.
 
 ## Acceptance criteria
 
-The first release is ready when a verified student and a verified staff account can sign in through the personal Firebase project; external emails are denied; staff receives administrative access; club data is served from NocoDB; and students can view club events in the in-app calendar without any Google Calendar permission prompt.
+The first release is ready when a verified student and a verified staff account can sign in through the personal Firebase project; external emails are denied; staff receives administrative access; club data is served from NocoDB; students can view club events in the in-app calendar without any Google Calendar permission prompt; and event data is synchronized server-side from each club's shared Google Calendar.

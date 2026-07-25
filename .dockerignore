@@ -1,0 +1,14 @@
+.git
+.github
+.gradle
+.idea
+.kotlin
+**/build
+**/.DS_Store
+**/*.iml
+node_modules
+kotlin-js-store
+local.properties
+.env
+.env.*
+*.env

@@ -1,0 +1,12 @@
+services:
+  ktor-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mhs-clubs-fa5d9b477aab.json:/app/mhs-clubs-fa5d9b477aab.json:ro
+      - ./mhs-clubs-bd9ce65312cc.json:/app/mhs-clubs-bd9ce65312cc.json:ro

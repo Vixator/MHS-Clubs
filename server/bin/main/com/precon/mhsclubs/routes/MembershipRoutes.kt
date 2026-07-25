@@ -21,7 +21,7 @@ private val json = Json { ignoreUnknownKeys = true }
 private data class MembershipRequest(
     val userId: String? = null,
     val clubId: String? = null,
-    val role: String? = null,  // "member", "officer", "student_leader"
+    val role: String? = null,  // "member", "advisor", "student_leader"
     val status: String? = null  // "pending", "active", "revoked"
 )
 
@@ -104,7 +104,7 @@ fun Route.membershipRoutes() {
                         
                         // Validate role if provided
                         if (request.role != null) {
-                            val validRoles = setOf("member", "officer", "student_leader")
+                            val validRoles = setOf("member", "advisor", "student_leader")
                             if (request.role !in validRoles) {
                                 return@post call.respondBadRequest(
                                     "Role must be one of: ${validRoles.joinToString(", ")}"
@@ -158,7 +158,7 @@ fun Route.membershipRoutes() {
                         
                         // Validate role if provided
                         if (request.role != null) {
-                            val validRoles = setOf("member", "officer", "student_leader")
+                            val validRoles = setOf("member", "advisor", "student_leader")
                             if (request.role !in validRoles) {
                                 return@put call.respondBadRequest(
                                     "Role must be one of: ${validRoles.joinToString(", ")}"
