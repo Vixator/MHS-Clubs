@@ -1,6 +1,7 @@
 package com.precon.mhsclubs.auth
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -167,6 +168,9 @@ class AndroidAuthService(private val context: Context) : AuthService {
             if (requestCode != REQUEST_CODE) {
                 return Result.failure(IllegalArgumentException("Invalid request code"))
             }
+            if (resultCode != android.app.Activity.RESULT_OK) {
+                throw IllegalStateException("Google sign-in was cancelled or did not complete")
+            }
             
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             val account = task.await()
@@ -185,16 +189,22 @@ class AndroidAuthService(private val context: Context) : AuthService {
             )
             
             Result.success(user)
-        } catch (e: ApiException) {
-            Result.failure(e)
         } catch (e: Exception) {
+            val message = when (e) {
+                is ApiException -> "Google sign-in failed (status ${e.statusCode}). Please try again."
+                else -> "Google sign-in failed: ${e.message ?: "Unknown error"}"
+            }
+            Log.e(TAG, message, e)
+            _authState.value = AuthState.Error(message, e)
             Result.failure(e)
         }
     }
     
     override suspend fun signOut(): Result<Unit> {
         return try {
-            googleSignInClient?.signOut()?.await()
+            // Firebase is the app session. A best-effort Google sign-out only clears the
+            // account chooser; it must not prevent the user from leaving the app session.
+            runCatching { googleSignInClient?.signOut()?.await() }
             auth.signOut()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -242,6 +252,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
 }
 
 private const val REQUEST_CODE = 1001
+private const val TAG = "AndroidAuthService"
 
 /**
  * Creates an Android-specific AuthService with a context.

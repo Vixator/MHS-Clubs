@@ -24,6 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +37,7 @@ import com.precon.mhsclubs.auth.AuthService
 import com.precon.mhsclubs.auth.AuthState
 import com.precon.mhsclubs.model.User
 import com.precon.mhsclubs.model.UserRole
+import kotlinx.coroutines.launch
 
 /**
  * Account screen displaying user profile information.
@@ -48,6 +53,9 @@ fun AccountScreen(
     onSignedOut: () -> Unit
 ) {
     val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
+    val scope = rememberCoroutineScope()
+    var isSigningOut by remember { mutableStateOf(false) }
+    var signOutError by remember { mutableStateOf<String?>(null) }
 
     // Handle sign out
     LaunchedEffect(authState) {
@@ -58,7 +66,18 @@ fun AccountScreen(
 
     AccountContent(
         user = authService.currentUser,
-        onSignOut = { }
+        isSigningOut = isSigningOut,
+        signOutError = signOutError,
+        onSignOut = {
+            scope.launch {
+                isSigningOut = true
+                signOutError = null
+                authService.signOut().onFailure { error ->
+                    signOutError = error.message ?: "Unable to sign out. Please try again."
+                }
+                isSigningOut = false
+            }
+        }
     )
 }
 
@@ -68,6 +87,8 @@ fun AccountScreen(
 @Composable
 fun AccountContent(
     user: User?,
+    isSigningOut: Boolean = false,
+    signOutError: String? = null,
     onSignOut: () -> Unit
 ) {
     Column(
@@ -88,8 +109,13 @@ fun AccountContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Profile icon
-                Icon(
+                user?.avatarUrl?.takeIf { it.isNotBlank() }?.let { avatarUrl ->
+                    RemoteProfileAvatar(
+                        avatarUrl = avatarUrl,
+                        displayName = user.displayName,
+                        modifier = Modifier.size(80.dp)
+                    )
+                } ?: Icon(
                     imageVector = Icons.Default.AccountCircle,
                     contentDescription = "Profile",
                     modifier = Modifier.size(80.dp)
@@ -169,6 +195,7 @@ fun AccountContent(
         // Sign out button
         Button(
             onClick = onSignOut,
+            enabled = !isSigningOut,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(
@@ -176,7 +203,15 @@ fun AccountContent(
                 contentDescription = "Sign Out"
             )
             Spacer(modifier = Modifier.size(8.dp))
-            Text("Sign Out")
+            Text(if (isSigningOut) "Signing out…" else "Sign Out")
+        }
+
+        signOutError?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

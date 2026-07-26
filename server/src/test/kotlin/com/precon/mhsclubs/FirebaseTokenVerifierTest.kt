@@ -26,6 +26,14 @@ class FirebaseTokenVerifierTest {
     }
 
     @Test
+    fun `configured Gmail administrator receives staff access`() {
+        val administrator = UserIdentity("administrator", "precon3515@gmail.com", emailVerified = true)
+
+        assertTrue(verifier.checkScheme(administrator, AuthenticationScheme.AnyAuthenticated))
+        assertTrue(verifier.checkScheme(administrator, AuthenticationScheme.StaffOnly))
+    }
+
+    @Test
     fun `unverified or non school email cannot receive staff access`() {
         val unverified = UserIdentity("staff", "teacher@mcpasd.k12.wi.us", emailVerified = false)
         val external = UserIdentity("external", "person@example.com", emailVerified = true)

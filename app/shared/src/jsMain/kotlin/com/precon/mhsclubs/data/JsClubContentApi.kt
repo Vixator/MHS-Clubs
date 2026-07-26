@@ -1,10 +1,17 @@
 package com.precon.mhsclubs.data
 
 import com.precon.mhsclubs.models.Event
+import com.precon.mhsclubs.model.Club
+import com.precon.mhsclubs.models.Membership
+import com.precon.mhsclubs.models.MembershipRole
+import com.precon.mhsclubs.models.MembershipStatus
 import com.precon.mhsclubs.screens.announcements.Announcement
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
 import io.ktor.client.request.header
 import io.ktor.client.request.accept
 import io.ktor.client.statement.bodyAsText
@@ -20,7 +27,42 @@ import kotlinx.serialization.json.jsonObject
 
 /** Browser-only HTTP adapter. The NocoDB token never reaches this client. */
 class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
-    override suspend fun loadEvents(firebaseIdToken: String): List<Event> = records("events", firebaseIdToken).mapNotNull { item ->
+    override suspend fun loadClubs(firebaseIdToken: String): List<Club> = records("/api/clubs", firebaseIdToken).mapNotNull { item ->
+        runCatching {
+            Club(
+                id = item.id(), sheetSourceId = item.stringOrDefault("sheet_source_id", item.id()),
+                name = item.string("name"), description = item.stringOrDefault("description", ""),
+                logoUrl = item.nullableString("logo_url", "logoUrl"), category = item.stringOrDefault("category", "General"),
+                meetingDay = item.nullableString("meeting_day", "meetingDay"), meetingTime = item.nullableString("meeting_time", "meetingTime"),
+                meetingLocation = item.nullableString("meeting_location", "meetingLocation"), code = item.string("code")
+            )
+        }.getOrNull()
+    }
+
+    override suspend fun loadMemberships(firebaseIdToken: String): List<Membership> =
+        records("/api/my/memberships", firebaseIdToken).mapNotNull { it.toMembershipOrNull() }
+
+    override suspend fun joinClub(firebaseIdToken: String, clubId: String): Membership {
+        val response = client.post("${baseUrl.trimEnd('/')}/api/memberships/join") {
+            header(HttpHeaders.Authorization, "Bearer $firebaseIdToken")
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody("{\"clubId\":\"$clubId\"}")
+        }
+        if (!response.status.isSuccess()) error("Server request failed with HTTP ${response.status}")
+        return json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]!!.jsonObject.toMembershipOrNull()
+            ?: error("Server returned an invalid membership")
+    }
+
+    override suspend fun leaveClub(firebaseIdToken: String, membershipId: String) {
+        val response = client.put("${baseUrl.trimEnd('/')}/api/memberships/$membershipId/leave") {
+            header(HttpHeaders.Authorization, "Bearer $firebaseIdToken")
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody("{}")
+        }
+        if (!response.status.isSuccess()) error("Server request failed with HTTP ${response.status}")
+    }
+
+    override suspend fun loadEvents(firebaseIdToken: String): List<Event> = records("/api/my/events", firebaseIdToken).mapNotNull { item ->
         runCatching {
             Event(
                 id = item.id(),
@@ -39,7 +81,7 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         }.getOrNull()
     }
 
-    override suspend fun loadAnnouncements(firebaseIdToken: String): List<Announcement> = records("announcements", firebaseIdToken).mapNotNull { item ->
+    override suspend fun loadAnnouncements(firebaseIdToken: String): List<Announcement> = records("/api/my/announcements", firebaseIdToken).mapNotNull { item ->
         runCatching {
             val posted = item.nullableString("posted_at", "postedAt", "created_at", "createdAt", "CreatedAt", "updated_at", "updatedAt", "UpdatedAt")
                 ?.let(Instant::parse) ?: return@runCatching null
@@ -53,9 +95,9 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         }.getOrNull()
     }
 
-    private suspend fun records(resource: String, token: String): List<JsonObject> = runCatching {
+    private suspend fun records(path: String, token: String): List<JsonObject> = runCatching {
         if (token.isBlank()) return emptyList()
-        val response = client.get("${baseUrl.trimEnd('/')}/api/my/$resource") {
+        val response = client.get("${baseUrl.trimEnd('/')}$path") {
             header(HttpHeaders.Authorization, "Bearer $token")
             accept(ContentType.Application.Json)
         }
@@ -71,6 +113,14 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
     private fun JsonObject.nullableString(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
         this[name]?.toString()?.trim('"')?.takeIf { it.isNotBlank() }
     }
+    private fun JsonObject.toMembershipOrNull(): Membership? = runCatching {
+        Membership(
+            id = id(), userId = string("firebase_uid", "userId"), clubId = string("club_id", "clubId"),
+            role = MembershipRole.fromValue(stringOrDefault("role", "member")),
+            status = MembershipStatus.fromValue(stringOrDefault("status", "active")),
+            joinedAt = nullableString("joined_at", "joinedAt")?.let(Instant::parse), leaderGrantedAt = null, revokedAt = null
+        )
+    }.getOrNull()
 
     private companion object {
         val client = HttpClient(Js)

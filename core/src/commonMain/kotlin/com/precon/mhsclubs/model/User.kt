@@ -66,6 +66,7 @@ data class User(
          */
         private fun fromEmailDomain(email: String): UserRole {
             return when {
+                email.trim().lowercase() in administratorEmails -> UserRole.Staff
                 email.endsWith("@students.mcpasd.k12.wi.us") -> UserRole.Student
                 email.endsWith("@mcpasd.k12.wi.us") -> UserRole.Staff
                 else -> throw IllegalArgumentException(
@@ -73,5 +74,7 @@ data class User(
                 )
             }
         }
+
+        private val administratorEmails = setOf("precon3515@gmail.com")
     }
 }

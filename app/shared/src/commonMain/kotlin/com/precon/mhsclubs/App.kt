@@ -1,6 +1,8 @@
 package com.precon.mhsclubs
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
@@ -24,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,18 +48,20 @@ import com.precon.mhsclubs.screens.clubs.ClubListScreen
 import com.precon.mhsclubs.screens.clubs.JoinClubScreen
 import com.precon.mhsclubs.screens.events.EventListScreen
 import com.precon.mhsclubs.screens.rsvp.RsvpScreen
+import com.precon.mhsclubs.ui.MhsClubsTheme
 import com.precon.mhsclubs.models.Event
 import com.precon.mhsclubs.models.Membership
 import com.precon.mhsclubs.models.MembershipRole
 import com.precon.mhsclubs.models.MembershipStatus
 import kotlinx.datetime.Instant
+import kotlinx.coroutines.launch
 
 /**
  * Main app component that handles authentication and navigation.
  */
 @Composable
 fun App(authServiceOverride: AuthService? = null, clubContentApi: ClubContentApi? = null) {
-    MaterialTheme {
+    MhsClubsTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             AppContent(authServiceOverride, clubContentApi)
         }
@@ -102,7 +107,12 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
     var showRsvp by remember { mutableStateOf(false) }
     var showAttendance by remember { mutableStateOf(false) }
     var syncedEvents by remember { mutableStateOf<List<Event>?>(null) }
+    var syncedClubs by remember { mutableStateOf<List<com.precon.mhsclubs.model.Club>?>(null) }
+    var syncedMemberships by remember { mutableStateOf<List<Membership>?>(null) }
     var syncedAnnouncements by remember { mutableStateOf<List<com.precon.mhsclubs.screens.announcements.Announcement>?>(null) }
+    var joinError by remember { mutableStateOf<String?>(null) }
+    var isJoining by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // Android provides this API adapter. Preview/Web/iOS preserve their existing sample content until
     // their platform-specific adapters are configured.
@@ -110,6 +120,10 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
         val api = clubContentApi ?: return@LaunchedEffect
         val token = authService.getIdToken() ?: return@LaunchedEffect
         when (currentScreen) {
+            AppScreen.ClubList, AppScreen.ClubDetail -> {
+                syncedClubs = runCatching { api.loadClubs(token) }.getOrNull()
+                syncedMemberships = runCatching { api.loadMemberships(token) }.getOrNull()
+            }
             AppScreen.Calendar, AppScreen.EventList -> syncedEvents = runCatching { api.loadEvents(token) }.getOrNull()
             AppScreen.Announcements -> syncedAnnouncements = runCatching { api.loadAnnouncements(token) }.getOrNull()
             else -> Unit
@@ -201,9 +215,76 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
         showRsvp = false
         showAttendance = false
     }
+
+    val shouldHandleSystemBack = showJoinClub || showRsvp || showAttendance ||
+        currentScreen == AppScreen.ClubDetail ||
+        currentScreen == AppScreen.EventList ||
+        (currentScreen == AppScreen.ClubList && authService.currentUser?.role == UserRole.Staff)
+
+    PlatformBackHandler(enabled = shouldHandleSystemBack) {
+        when {
+            showJoinClub -> showJoinClub = false
+            showRsvp -> showRsvp = false
+            showAttendance -> showAttendance = false
+            currentScreen == AppScreen.ClubList -> currentScreen = AppScreen.AdminDashboard
+            currentScreen == AppScreen.EventList && authService.currentUser?.role == UserRole.Staff -> {
+                currentScreen = AppScreen.AdminDashboard
+            }
+            else -> navigateBack()
+        }
+    }
     
-    // Render the current screen
-    when (currentScreen) {
+    val primaryDestination = currentScreen in setOf(
+        AppScreen.ClubList,
+        AppScreen.Calendar,
+        AppScreen.Announcements,
+        AppScreen.Account,
+        AppScreen.AdminDashboard
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (primaryDestination) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = currentScreen == AppScreen.ClubList,
+                        onClick = navigateToClubList,
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                        label = { Text("Clubs") }
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == AppScreen.Calendar,
+                        onClick = navigateToCalendar,
+                        icon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+                        label = { Text("Calendar") }
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == AppScreen.Announcements,
+                        onClick = navigateToAnnouncements,
+                        icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                        label = { Text("Updates") }
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == AppScreen.Account,
+                        onClick = navigateToAccount,
+                        icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
+                        label = { Text("Account") }
+                    )
+                    if (authService.currentUser?.role == UserRole.Staff) {
+                        NavigationBarItem(
+                            selected = currentScreen == AppScreen.AdminDashboard,
+                            onClick = navigateToAdmin,
+                            icon = { Icon(Icons.Default.Group, contentDescription = null) },
+                            label = { Text("Admin") }
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            // Individual screens manage their own top bars and scroll containers.
+            when (currentScreen) {
         AppScreen.Login -> {
             LoginScreen(
                 authService = authService,
@@ -221,22 +302,33 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
         
         AppScreen.ClubList -> {
             ClubListScreen(
-                onAccountClick = navigateToAccount,
+                clubs = syncedClubs ?: getSampleClubs(),
+                onJoinClubClick = navigateToJoinClub,
                 onClubClick = navigateToClubDetail,
-                onCalendarClick = navigateToCalendar,
-                onAnnouncementsClick = navigateToAnnouncements
+                memberClubIds = syncedMemberships
+                    ?.filter { it.status == MembershipStatus.Active }
+                    ?.map { it.clubId }
+                    ?.toSet()
+                    ?: emptySet()
             )
         }
         
         AppScreen.ClubDetail -> {
             selectedClubId?.let { clubId ->
                 ClubDetailScreen(
-                    club = getSampleClub(clubId),
-                    membership = getSampleMembership(clubId),
+                    club = (syncedClubs ?: getSampleClubs()).firstOrNull { it.id == clubId } ?: getSampleClub(clubId),
+                    membership = syncedMemberships?.firstOrNull { it.clubId == clubId },
                     userRole = authService.currentUser?.role ?: UserRole.Student,
                     onBackClick = navigateBack,
                     onJoinClick = navigateToJoinClub,
-                    onLeaveClick = { /* Handle leave club */ }
+                    onLeaveClick = {
+                        val membership = syncedMemberships?.firstOrNull { it.clubId == clubId } ?: return@ClubDetailScreen
+                        scope.launch {
+                            val token = authService.getIdToken()
+                            if (clubContentApi != null && token != null) clubContentApi.leaveClub(token, membership.id)
+                            syncedMemberships = syncedMemberships?.filterNot { it.id == membership.id }
+                        }
+                    }
                 )
             }
         }
@@ -274,21 +366,14 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
         AppScreen.Account -> {
             AccountScreen(
                 authService = authService,
-                onSignedOut = { navigateToClubList() }
+                onSignedOut = { currentScreen = AppScreen.Login }
             )
         }
         
         AppScreen.AdminDashboard -> {
             AdminDashboardScreen(
-                clubCount = 5,
-                memberCount = 120,
-                eventCount = 8,
-                onCreateClub = { /* Navigate to create club */ },
                 onManageClubs = navigateToClubList,
-                onManageMembers = { /* Navigate to members */ },
-                onCreateEvent = { /* Navigate to create event */ },
-                onManageEvents = navigateToEventList,
-                onSyncData = { /* Trigger sync */ }
+                onManageEvents = navigateToEventList
             )
         }
         
@@ -298,17 +383,42 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
                 onAnnouncementClick = { /* Show announcement detail */ }
             )
         }
-        AppScreen.Attendance, AppScreen.Rsvp -> Unit
+                AppScreen.Attendance, AppScreen.Rsvp -> Unit
+            }
+        }
     }
     
     // Modal screens
     if (showJoinClub) {
         JoinClubScreen(
             onBackClick = { showJoinClub = false },
-            onJoinClick = { code ->
-                // Handle join club
-                showJoinClub = false
-            }
+            onJoinClick = { name ->
+                val club = (syncedClubs ?: getSampleClubs()).firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
+                if (club == null) {
+                    joinError = "Club name not found. Please check and try again."
+                } else {
+                    scope.launch {
+                        isJoining = true
+                        joinError = null
+                        val token = authService.getIdToken()
+                        val membership = runCatching {
+                            if (clubContentApi != null && token != null) clubContentApi.joinClub(token, club.id)
+                            else getSampleMembership(club.id)
+                        }.getOrElse {
+                            joinError = "Unable to join this club. Please try again."
+                            isJoining = false
+                            return@launch
+                        }
+                        syncedMemberships = (syncedMemberships ?: emptyList()).filterNot { it.clubId == club.id } + membership
+                        selectedClubId = club.id
+                        currentScreen = AppScreen.ClubDetail
+                        showJoinClub = false
+                        isJoining = false
+                    }
+                }
+            },
+            isLoading = isJoining,
+            errorMessage = joinError
         )
     }
     
@@ -335,7 +445,15 @@ fun AppContent(authServiceOverride: AuthService? = null, clubContentApi: ClubCon
 }
 
 // Sample data generators for preview/demo purposes
-@Composable
+private fun getSampleClubs(): List<com.precon.mhsclubs.model.Club> = listOf(
+    getSampleClub("club1"),
+    com.precon.mhsclubs.model.Club(
+        id = "club2", sheetSourceId = "sheet_club2", name = "Chess Club",
+        description = "Play chess and build your strategy skills.", category = "Games",
+        meetingDay = "Tuesday", meetingTime = "3:15 PM", meetingLocation = "Library", code = "CHESS"
+    )
+)
+
 private fun getSampleClub(clubId: String): com.precon.mhsclubs.model.Club {
     return com.precon.mhsclubs.model.Club(
         id = clubId,
@@ -351,7 +469,6 @@ private fun getSampleClub(clubId: String): com.precon.mhsclubs.model.Club {
     )
 }
 
-@Composable
 private fun getSampleMembership(clubId: String): Membership {
     return Membership(
         id = "membership_${clubId}_user1",
@@ -365,7 +482,6 @@ private fun getSampleMembership(clubId: String): Membership {
     )
 }
 
-@Composable
 private fun getSampleEvents(): List<Event> {
     return listOf(
         Event(
@@ -393,12 +509,10 @@ private fun getSampleEvents(): List<Event> {
     )
 }
 
-@Composable
 private fun getSampleEvent(eventId: String): Event {
     return getSampleEvents().find { it.id == eventId } ?: getSampleEvents()[0]
 }
 
-@Composable
 private fun getSampleAttendanceMembers(): List<AttendanceMember> {
     return listOf(
         AttendanceMember(
@@ -422,7 +536,6 @@ private fun getSampleAttendanceMembers(): List<AttendanceMember> {
     )
 }
 
-@Composable
 private fun getSampleAnnouncements(): List<com.precon.mhsclubs.screens.announcements.Announcement> {
     return listOf(
         com.precon.mhsclubs.screens.announcements.Announcement(

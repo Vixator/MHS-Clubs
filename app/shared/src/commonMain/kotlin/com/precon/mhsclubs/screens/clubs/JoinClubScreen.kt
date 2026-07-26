@@ -32,12 +32,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /**
- * Join club screen for entering a club code.
+ * Join club screen for entering a club name.
  *
- * Allows students to join a club by entering its unique code.
+ * Allows students to join a club by entering its name.
  *
  * @param onBackClick Callback when the back button is clicked
- * @param onJoinClick Callback when the user attempts to join with a code
+ * @param onJoinClick Callback when the user attempts to join with a club name
  * @param isLoading Whether a join request is in progress
  * @param errorMessage Error message to display, if any
  */
@@ -48,7 +48,7 @@ fun JoinClubScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null
 ) {
-    var clubCode by remember { mutableStateOf("") }
+    var clubName by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -79,18 +79,17 @@ fun JoinClubScreen(
 
         // Instructions
         Text(
-            text = "Enter the club code provided by your club advisor or student leader:",
+            text = "Enter the name of the club you want to join:",
             style = MaterialTheme.typography.bodyLarge
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Club code input
         OutlinedTextField(
-            value = clubCode,
-            onValueChange = { clubCode = it.uppercase() },
-            label = { Text("Club Code") },
-            placeholder = { Text("e.g., ROBOT") },
+            value = clubName,
+            onValueChange = { clubName = it },
+            label = { Text("Club name") },
+            placeholder = { Text("e.g., Robotics Club") },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text
             ),
@@ -111,8 +110,8 @@ fun JoinClubScreen(
 
         // Join button
         Button(
-            onClick = { onJoinClick(clubCode) },
-            enabled = clubCode.isNotEmpty() && !isLoading,
+            onClick = { onJoinClick(clubName) },
+            enabled = clubName.isNotBlank() && !isLoading,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (isLoading) {
@@ -132,7 +131,7 @@ fun JoinClubScreen(
 
         // Club code help
         Text(
-            text = "Don't have a code? Ask your club advisor or student leader for the club's unique code.",
+            text = "Search for the club name exactly as it appears in the club directory.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -152,7 +151,7 @@ fun JoinClubScreenPreview() {
 fun JoinClubScreenWithErrorPreview() {
     MaterialTheme {
         JoinClubScreen(
-            errorMessage = "Club code not found. Please check and try again."
+            errorMessage = "Club name not found. Please check and try again."
         )
     }
 }

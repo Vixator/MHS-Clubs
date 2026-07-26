@@ -36,6 +36,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.androidx.activity.compose)
             implementation(libs.firebaseAuth)
             implementation(libs.playServicesAuth)
             implementation(libs.coroutinesPlayServices)

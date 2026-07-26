@@ -4,8 +4,12 @@
  *   MHS_CLUBS_ANNOUNCEMENT_URL = https://api.example.org/integrations/forms/announcements
  *   MHS_CLUBS_FORM_INGEST_SECRET = same value as the server's FORM_INGEST_SECRET
  *
- * Required Form question titles: Club Name, Announcement Title, Announcement Body.
+ * Required Form question titles: Club Name, Announcement Title, Announcement Body, Announcer Name.
  * Optional title: Any URL Links (if multiple, separate using commas).
+ *
+ * Store MHS_CLUBS_CLUB_IDS as JSON in Script Properties, mapping each exact dropdown
+ * label to its NocoDB clubs.Id, for example {"Robotics Club":"12"}. Do not put IDs
+ * into form labels or rely on name matching.
  */
 function sendAnnouncementToMhsClubs(event) {
   const values = event.namedValues;
@@ -13,20 +17,31 @@ function sendAnnouncementToMhsClubs(event) {
   const clubName = first('Club Name');
   const title = first('Announcement Title');
   const messageBody = first('Announcement Body');
-  if (!clubName || !title || !messageBody) {
-    throw new Error('Club Name, Announcement Title, and Announcement Body are required.');
+  const announcerName = first('Announcer Name');
+  if (!clubName || !title || !messageBody || !announcerName) {
+    throw new Error('Club Name, Announcement Title, Announcement Body, and Announcer Name are required.');
   }
 
   const props = PropertiesService.getScriptProperties();
   const url = props.getProperty('MHS_CLUBS_ANNOUNCEMENT_URL');
   const secret = props.getProperty('MHS_CLUBS_FORM_INGEST_SECRET');
+  const clubIdsJson = props.getProperty('MHS_CLUBS_CLUB_IDS');
   if (!url || !secret) throw new Error('Configure the MHS Clubs URL and ingest secret in Script Properties.');
+  let clubIds;
+  try {
+    clubIds = JSON.parse(clubIdsJson || '{}');
+  } catch (_) {
+    throw new Error('MHS_CLUBS_CLUB_IDS must contain valid JSON.');
+  }
+  const clubId = clubIds[clubName];
+  if (!clubId) throw new Error('The selected club has no configured NocoDB club ID.');
 
   const payload = {
-    club_name: clubName,
+    club_id: String(clubId),
     title: title,
     message_body: messageBody,
-    links: first('Any URL Links (if multiple, separate using commas)')
+    links: first('Any URL Links (if multiple, separate using commas)'),
+    author_name: announcerName
   };
   const response = UrlFetchApp.fetch(url, {
     method: 'post',

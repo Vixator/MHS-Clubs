@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "791091965723-u7co7a7o9qll4jfeefoelhnirl7d9fs7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.precon.mhsclubs",
+            "certificate_hash": "dc12cabb7dee09086887a2a710b39f74579f9bab"
+          }
+        },
+        {
           "client_id": "791091965723-0ab0ek2pd6mlpnhaqjtpdifh2pls62jn.apps.googleusercontent.com",
           "client_type": 3
         }

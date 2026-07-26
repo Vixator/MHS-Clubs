@@ -11,18 +11,18 @@ This list intentionally excludes code work. Firebase, NocoDB, the local `.env`, 
 - [ ] Set `WEB_ALLOWED_HOST` to the deployed Web hostname. The server accepts a hostname or `*.example.org` (without a path); localhost remains allowed for development.
 - [ ] Add the deployed Web domain to Firebase Authentication's authorized domains and add the corresponding OAuth redirect/origin configuration in Google Cloud.
 - [ ] Request the deployed `/health` endpoint and verify Firebase, NocoDB, and Google Calendar each report configured. Then test student, teacher, and external Google accounts against the deployed app.
-- [ ] Establish NocoDB backups and a yearly club-data import/review process.
+- [ ] Establish a yearly club-data import/review process.
 
 ## Platform work that requires the project owner
 
-- [ ] Complete iOS Firebase native setup on macOS: add FirebaseAuth, FirebaseCore, and GoogleSignIn; add `GoogleService-Info.plist`; configure the reversed-client-ID URL scheme; then build/test the iOS target.
 - [ ] For a physical Android-device local test, select this computer's LAN API URL, allow TCP 8080 through Windows Firewall, and keep the phone and computer on the same Wi-Fi. (`10.0.2.2` is only for an emulator.)
 
-## Optional Google Form announcement relay
+## Google Form announcement relay
 
-- [ ] If announcement forms are wanted, create the form, put [google-form-announcement.gs](scripts/google-form-announcement.gs) in its Apps Script project, configure its Script Properties, and install the submit trigger.
-- [ ] Give the relay a reachable HTTPS API URL; Apps Script cannot call localhost or a LAN-only server.
+- [x] The announcement Form, Apps Script submit trigger, and matching `FORM_INGEST_SECRET` are configured.
+- [ ] Store the exact Form dropdown-label → NocoDB `clubs.Id` mapping in the Apps Script `MHS_CLUBS_CLUB_IDS` Script Property. Restrict Form access to teachers.
+- [ ] Before production, point the relay at the deployed HTTPS API URL; Apps Script cannot call localhost or a LAN-only server.
 
 ## Not required
 
-- No Google Calendar OAuth, Calendar token storage, Google Sheets API, PostgreSQL, SQLite, SQLDelight migration, or Docker database.
+- No Google Calendar OAuth, Calendar token storage, Google Sheets API, PostgreSQL, SQLite, SQLDelight migration, Docker database, NocoDB backup process, or iOS support.

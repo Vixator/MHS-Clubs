@@ -1,6 +1,5 @@
 package com.precon.mhsclubs.screens.clubs
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Card
@@ -28,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -59,9 +57,8 @@ import com.precon.mhsclubs.model.UserRole
 fun ClubListScreen(
     clubs: List<Club> = emptyList(),
     isLoading: Boolean = false,
-    onAccountClick: () -> Unit = {},
-    onCalendarClick: () -> Unit = {},
-    onAnnouncementsClick: () -> Unit = {},
+    onJoinClubClick: () -> Unit = {},
+    memberClubIds: Set<String> = emptySet(),
     onClubClick: (String) -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -69,17 +66,8 @@ fun ClubListScreen(
         TopAppBar(
             title = { Text("MHS Clubs") },
             actions = {
-                IconButton(onClick = onCalendarClick) {
-                    Icon(imageVector = Icons.Default.CalendarToday, contentDescription = "My club calendar")
-                }
-                IconButton(onClick = onAnnouncementsClick) {
-                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "Announcements")
-                }
-                IconButton(onClick = onAccountClick) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Account"
-                    )
+                IconButton(onClick = onJoinClubClick) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Join a club")
                 }
             }
         )
@@ -87,24 +75,16 @@ fun ClubListScreen(
         // Search bar
         var searchQuery by remember { mutableStateOf("") }
         
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search",
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = "Search clubs...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = { Text("Search club names") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        )
+
+        val visibleClubs = clubs.fuzzyMatch(searchQuery)
 
         // Club list
         if (isLoading) {
@@ -114,7 +94,7 @@ fun ClubListScreen(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (clubs.isEmpty()) {
+        } else if (visibleClubs.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -127,9 +107,10 @@ fun ClubListScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(clubs) { club ->
+                items(visibleClubs) { club ->
                     ClubCard(
                         club = club,
+                        isMember = club.id in memberClubIds,
                         onClick = { onClubClick(club.id) }
                     )
                 }
@@ -139,17 +120,89 @@ fun ClubListScreen(
 }
 
 /**
+ * Returns club matches ordered by relevance. Exact and prefix matches rank first, while
+ * subsequence and small spelling errors keep discovery forgiving on a phone keyboard.
+ */
+internal fun List<Club>.fuzzyMatch(query: String): List<Club> {
+    val normalizedQuery = query.normalizedSearchText()
+    if (normalizedQuery.isBlank()) return this
+
+    return mapNotNull { club ->
+        val fields = listOf(club.name, club.code, club.category, club.description)
+        fields.mapNotNull { field -> field.fuzzyScore(normalizedQuery) }.minOrNull()?.let { score ->
+            club to score
+        }
+    }
+        .sortedWith(compareBy<Pair<Club, Int>> { it.second }.thenBy { it.first.name })
+        .map { it.first }
+}
+
+private fun String.fuzzyScore(query: String): Int? {
+    val value = normalizedSearchText()
+    if (value.contains(query)) return value.indexOf(query)
+
+    val queryTokens = query.split(' ').filter { it.isNotBlank() }
+    val valueTokens = value.split(' ').filter { it.isNotBlank() }
+    if (queryTokens.isEmpty()) return 0
+
+    var score = 0
+    for (queryToken in queryTokens) {
+        val best = valueTokens.minOfOrNull { token ->
+            when {
+                token.contains(queryToken) -> token.indexOf(queryToken)
+                queryToken.isSubsequenceOf(token) -> token.length - queryToken.length
+                else -> queryToken.levenshteinDistance(token)
+            }
+        } ?: return null
+        if (best > 2) return null
+        score += best
+    }
+    return score + 10
+}
+
+private fun String.normalizedSearchText(): String =
+    lowercase().map { character -> if (character.isLetterOrDigit() || character == ' ') character else ' ' }
+        .joinToString("").trim()
+
+private fun String.isSubsequenceOf(value: String): Boolean {
+    var valueIndex = 0
+    for (character in this) {
+        valueIndex = value.indexOf(character, valueIndex)
+        if (valueIndex < 0) return false
+        valueIndex++
+    }
+    return true
+}
+
+private fun String.levenshteinDistance(other: String): Int {
+    var previous = IntArray(other.length + 1) { it }
+    forEachIndexed { row, character ->
+        val current = IntArray(other.length + 1)
+        current[0] = row + 1
+        other.forEachIndexed { column, otherCharacter ->
+            current[column + 1] = minOf(
+                previous[column + 1] + 1,
+                current[column] + 1,
+                previous[column] + if (character == otherCharacter) 0 else 1
+            )
+        }
+        previous = current
+    }
+    return previous[other.length]
+}
+
+/**
  * Card displaying a single club.
  */
 @Composable
 fun ClubCard(
     club: Club,
+    isMember: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .fillMaxWidth(),
         onClick = onClick
     ) {
         Column(
@@ -171,7 +224,7 @@ fun ClubCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.School,
-                        contentDescription = "Club Logo",
+                        contentDescription = null,
                         modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -195,6 +248,13 @@ fun ClubCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (isMember) {
+                        Text(
+                            text = "Member",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 

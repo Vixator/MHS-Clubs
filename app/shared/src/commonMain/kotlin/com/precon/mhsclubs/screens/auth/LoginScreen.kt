@@ -72,6 +72,7 @@ fun LoginScreen(
 
     LoginContent(
         isLoading = authState is AuthState.Loading,
+        errorMessage = (authState as? AuthState.Error)?.message,
         onSignInClick = {
             scope.launch {
                 authService.signInWithGoogle().exceptionOrNull()
@@ -88,6 +89,7 @@ fun LoginScreen(
 @Composable
 fun LoginContent(
     isLoading: Boolean,
+    errorMessage: String? = null,
     onSignInClick: () -> Unit
 ) {
     Column(
@@ -135,6 +137,16 @@ fun LoginContent(
             ) {
                 Text("Sign in with Google")
             }
+        }
+
+        errorMessage?.let { message ->
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))

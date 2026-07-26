@@ -73,6 +73,10 @@ class NocoDbClient(
         listRecords("memberships", where = "(firebase_uid,eq,$firebaseUid)~and(status,eq,active)")
     ).mapNotNull { it.string("club_id", "clubId") }.toSet()
 
+    fun membershipBelongsTo(membershipId: String, firebaseUid: String): Boolean = records(
+        listRecords("memberships", where = "(Id,eq,$membershipId)~and(firebase_uid,eq,$firebaseUid)")
+    ).isNotEmpty()
+
     /** Keeps the student-facing data boundary on the server, not in the Android app. */
     fun recordsForClubs(resource: String, clubIds: Set<String>): String {
         if (clubIds.isEmpty()) return "{\"list\":[]}"

@@ -49,6 +49,14 @@ fun Application.module() {
             )
         }
         route("/api") {
+            get("/clubs") {
+                call.requireIdentity(verifier) ?: return@get
+                call.respondNoco { nocoDb.listRecords("clubs") }
+            }
+            get("/my/memberships") {
+                val identity = call.requireIdentity(verifier) ?: return@get
+                call.respondNoco { nocoDb.listRecords("memberships", where = "(firebase_uid,eq,${identity.uid})") }
+            }
             /** Returns only content for clubs in which the signed-in student is active. */
             get("/my/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
@@ -75,6 +83,12 @@ fun Application.module() {
                 call.respondNoco(HttpStatusCode.Created) {
                     nocoDb.createRecord("memberships", """{"firebase_uid":"${identity.uid}","club_id":"$clubId","status":"active"}""")
                 }
+            }
+            put("/memberships/{membershipId}/leave") {
+                val identity = call.requireIdentity(verifier) ?: return@put
+                val membershipId = call.parameters["membershipId"].orEmpty()
+                if (!nocoDb.membershipBelongsTo(membershipId, identity.uid)) return@put call.respondForbidden()
+                call.respondNoco { nocoDb.updateRecord("memberships", membershipId, """{\"status\":\"revoked\"}""") }
             }
             post("/rsvps/respond") {
                 val identity = call.requireIdentity(verifier) ?: return@post
@@ -156,8 +170,8 @@ fun Application.module() {
 
         /**
          * Receives a Google Apps Script form-submit relay. The script must send
-         * `Authorization: Bearer <FORM_INGEST_SECRET>` and JSON with club_name (or club_id or
-         * calendar_id), title, message_body, and optional links.
+         * `Authorization: Bearer <FORM_INGEST_SECRET>` and JSON with a NocoDB club_id,
+         * title, message_body, and optional links.
          */
         post("/integrations/forms/announcements") {
             val secret = environment("FORM_INGEST_SECRET").orEmpty()
@@ -170,9 +184,7 @@ fun Application.module() {
                 return@post call.respondBadRequest("Form payload must be a JSON object")
             }
             val clubId = payload.string("club_id", "clubId")
-                ?: payload.string("calendar_id", "calendarId")?.let(nocoDb::findClubIdByCalendar)
-                ?: payload.string("club_name", "clubName")?.let(nocoDb::findClubIdByName)
-                ?: return@post call.respondBadRequest("A valid club_name, club_id, or calendar_id is required")
+                ?: return@post call.respondBadRequest("club_id is required")
             val content = listOfNotNull(payload.string("message_body", "messageBody", "content"), payload.string("links"))
                 .joinToString("\n\n").trim()
             if (content.isBlank()) return@post call.respondBadRequest("message_body or links is required")
