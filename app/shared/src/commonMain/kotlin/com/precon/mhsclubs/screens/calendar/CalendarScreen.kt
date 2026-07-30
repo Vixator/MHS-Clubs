@@ -1,29 +1,27 @@
 package com.precon.mhsclubs.screens.calendar
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,12 +29,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.precon.mhsclubs.model.Club
 import com.precon.mhsclubs.models.Event
-import kotlin.time.Clock
+import com.precon.mhsclubs.ui.FigmaCard
+import com.precon.mhsclubs.ui.FigmaDarkText
+import com.precon.mhsclubs.ui.FigmaPill
+import com.precon.mhsclubs.ui.FigmaClubFilter
+import com.precon.mhsclubs.ui.FigmaRed
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaTan
+import com.precon.mhsclubs.ui.FigmaText
+import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -44,194 +53,78 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
-/** A touch-first agenda that keeps one complete week in view at a time. */
 @Composable
-fun CalendarScreen(
-    events: List<Event> = emptyList(),
-    currentDate: LocalDate = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds())
-        .toLocalDateTime(TimeZone.currentSystemDefault()).date,
-    onDateSelected: (LocalDate) -> Unit = {},
-    onEventClick: (String) -> Unit = {}
-) {
-    var weekStart by remember(currentDate) { mutableStateOf(currentDate.startOfWeek()) }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(onClick = { weekStart = weekStart.minus(DatePeriod(days = 7)) }) {
-                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous week")
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = weekStart.weekRangeLabel(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+fun CalendarScreen(events: List<Event> = emptyList(), clubs: List<Club> = emptyList(), currentDate: LocalDate = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()).toLocalDateTime(TimeZone.currentSystemDefault()).date, onDateSelected: (LocalDate) -> Unit = {}, onEventClick: (String) -> Unit = {}) {
+    var month by remember { mutableStateOf(LocalDate(currentDate.year, currentDate.month, 1)) }
+    var scheduled by remember { mutableStateOf(true) }
+    var selectedClubId by remember { mutableStateOf<String?>(null) }
+    var filterExpanded by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+    val visible = events.filter { it.isScheduledMeeting == scheduled && (selectedClubId == null || selectedClubId == it.clubId) }
+    val agenda = selectedDate?.let { date -> visible.filter { it.date() == date } } ?: visible.filter { it.startTime >= Clock.System.now() }.sortedBy { it.startTime }.take(3)
+    FigmaScreen(Modifier.fillMaxSize()) {
+        Box(Modifier.height(42.dp))
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val useCompactHeader = maxWidth < 352.dp
+            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                FigmaTitle(
+                    "Calendar",
+                    modifier = if (useCompactHeader) Modifier.weight(1f) else Modifier.width(176.dp)
                 )
-                Text(
-                    text = "Weekly agenda",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                com.precon.mhsclubs.ui.FigmaSegmentedControl(
+                    "Scheduled", "Un-Scheduled", scheduled,
+                    { scheduled = true }, { scheduled = false },
+                    if (useCompactHeader) Modifier.weight(1f).height(36.dp) else Modifier.width(176.dp).height(36.dp)
                 )
             }
-            IconButton(onClick = { weekStart = weekStart.plus(DatePeriod(days = 7)) }) {
-                Icon(Icons.Default.ChevronRight, contentDescription = "Next week")
-            }
         }
-
-        TextButton(
-            onClick = { weekStart = currentDate.startOfWeek() },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text("Today")
-        }
-
-        AnimatedContent(targetState = weekStart, label = "week change") { visibleWeekStart ->
-            WeekAgenda(
-                weekStart = visibleWeekStart,
-                events = events,
-                onDateSelected = onDateSelected,
-                onEventClick = onEventClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun WeekAgenda(
-    weekStart: LocalDate,
-    events: List<Event>,
-    onDateSelected: (LocalDate) -> Unit,
-    onEventClick: (String) -> Unit
-) {
-    val eventsByDate = remember(events) {
-        events.groupBy { event -> event.startTime.toLocalDateTime(TimeZone.currentSystemDefault()).date }
-    }
-    val days = remember(weekStart) { List(7) { weekStart.plus(DatePeriod(days = it)) } }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(days, key = { it.toString() }) { date ->
-            WeekDay(
-                date = date,
-                events = eventsByDate[date].orEmpty(),
-                onDateSelected = { onDateSelected(date) },
-                onEventClick = onEventClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun WeekDay(
-    date: LocalDate,
-    events: List<Event>,
-    onDateSelected: () -> Unit,
-    onEventClick: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onDateSelected)
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.size(48.dp)
-            ) {
-                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Box(Modifier.height(6.dp))
+        MonthPanel(month, selectedDate, onPrevious = { month = month.minus(DatePeriod(months = 1)) }, onNext = { month = month.plus(DatePeriod(months = 1)) }) { date -> selectedDate = date; onDateSelected(date) }
+        Box(Modifier.height(9.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Events for: ${selectedDate?.pretty() ?: "Upcoming"}", color = FigmaText, fontSize = 18.sp, modifier = Modifier.weight(1f))
+            Box {
+                FigmaClubFilter(
+                    clubs.firstOrNull { it.id == selectedClubId }?.name ?: "Club Selector",
+                    onClick = { filterExpanded = true }
+                )
+                DropdownMenu(expanded = filterExpanded, onDismissRequest = { filterExpanded = false }) {
+                    DropdownMenuItem(text = { Text("All clubs") }, onClick = { selectedClubId = null; filterExpanded = false })
+                    clubs.forEach { club -> DropdownMenuItem(text = { Text(club.name) }, onClick = { selectedClubId = club.id; filterExpanded = false }) }
                 }
             }
-            Column {
-                Text(date.dayOfWeek.name.lowercase().replaceFirstChar { it.titlecase() }, style = MaterialTheme.typography.titleMedium)
-                Text(date.month.name.lowercase().replaceFirstChar { it.titlecase() }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = if (events.isEmpty()) "Free" else "${events.size} event${if (events.size == 1) "" else "s"}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
-
-        if (events.isEmpty()) {
-            Text(
-                text = "No club events",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 60.dp, bottom = 12.dp)
-            )
-        } else {
-            events.forEach { event ->
-                CalendarEventRow(event = event, onClick = { onEventClick(event.id) })
-            }
+        Box(Modifier.height(9.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+            items(agenda, key = { it.id }) { event -> CalendarEventCard(event, { onEventClick(event.id) }) }
+            if (agenda.isEmpty()) item { Text("No ${if (scheduled) "scheduled" else "unscheduled"} events.", color = FigmaText, fontSize = 14.sp) }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
 @Composable
-private fun CalendarEventRow(event: Event, onClick: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 60.dp, bottom = 8.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(event.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(formatTime(event.startTime, event.endTime), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            event.location?.takeIf { it.isNotBlank() }?.let { location ->
-                Text(location, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+private fun MonthPanel(month: LocalDate, selected: LocalDate?, onPrevious: () -> Unit, onNext: () -> Unit, onSelect: (LocalDate) -> Unit) {
+    val start = month.minus(DatePeriod(days = (month.dayOfWeek.ordinal + 1) % 7))
+    Column(Modifier.fillMaxWidth().height(328.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(FigmaTan).padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("${month.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${month.year}", color = FigmaDarkText, fontWeight = FontWeight.Medium, fontSize = 17.sp, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.KeyboardArrowLeft, "Previous month", tint = FigmaDarkText, modifier = Modifier.clickable(onClick = onPrevious))
+            Icon(Icons.Default.KeyboardArrowRight, "Next month", tint = FigmaDarkText, modifier = Modifier.clickable(onClick = onNext))
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { listOf("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT").forEach { Text(it, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) } }
+        repeat(5) { week -> Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.SpaceBetween) { repeat(7) { day -> val date = start.plus(DatePeriod(days = week * 7 + day)); Box(Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (date == selected) Color.Black else Color.Transparent).clickable { onSelect(date) }, contentAlignment = Alignment.Center) { Text(date.dayOfMonth.toString(), color = if (date.month == month.month) FigmaDarkText else Color(0xFF685A4B), fontSize = 18.sp) } } } }
     }
 }
 
-private fun LocalDate.startOfWeek(): LocalDate = minus(DatePeriod(days = (dayOfWeek.ordinal + 1) % 7))
-
-private fun LocalDate.weekRangeLabel(): String {
-    val weekEnd = plus(DatePeriod(days = 6))
-    val startMonth = month.name.lowercase().replaceFirstChar { it.titlecase() }
-    val endMonth = weekEnd.month.name.lowercase().replaceFirstChar { it.titlecase() }
-    return if (month == weekEnd.month) "$startMonth $dayOfMonth–${weekEnd.dayOfMonth}, $year" else "$startMonth $dayOfMonth – $endMonth ${weekEnd.dayOfMonth}, ${weekEnd.year}"
-}
-
-fun formatTime(startTime: Instant, endTime: Instant?): String {
-    val startLocal = startTime.toLocalDateTime(TimeZone.currentSystemDefault())
-    val start = "${startLocal.hour}:${startLocal.minute.toString().padStart(2, '0')}"
-    val end = endTime?.toLocalDateTime(TimeZone.currentSystemDefault())?.let { "${it.hour}:${it.minute.toString().padStart(2, '0')}" }
-    return end?.let { "$start – $it" } ?: start
-}
-
-@Preview
 @Composable
-fun CalendarScreenPreview() {
-    MaterialTheme {
-        CalendarScreen(
-            events = listOf(
-                Event(
-                    id = "1", clubId = "robotics", title = "Robotics Meeting", description = "Weekly team meeting", location = "Room 204",
-                    startTime = Instant.parse("2026-07-27T15:30:00Z"), endTime = Instant.parse("2026-07-27T17:00:00Z"),
-                    createdAt = Instant.parse("2026-07-01T00:00:00Z"), updatedAt = Instant.parse("2026-07-01T00:00:00Z")
-                )
-            )
-        )
+private fun CalendarEventCard(event: Event, onClick: () -> Unit) {
+    FigmaCard(Modifier.fillMaxWidth().height(100.dp), borderColor = if (event.isScheduledMeeting) Color.White else FigmaRed, onClick = onClick) {
+        Text(event.title, color = FigmaDarkText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(event.description, color = FigmaDarkText, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
     }
 }
+
+private fun Event.date(): LocalDate = startTime.toLocalDateTime(TimeZone.currentSystemDefault()).date
+private fun LocalDate.pretty(): String = "${month.name.lowercase().replaceFirstChar { it.uppercase() }} $dayOfMonth"

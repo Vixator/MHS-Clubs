@@ -4,332 +4,130 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.precon.mhsclubs.model.Club
-import com.precon.mhsclubs.model.UserRole
+import com.precon.mhsclubs.models.Event
+import com.precon.mhsclubs.ui.FigmaCard
+import com.precon.mhsclubs.ui.FigmaDarkText
+import com.precon.mhsclubs.ui.FigmaPage
+import com.precon.mhsclubs.ui.FigmaPill
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaRed
+import com.precon.mhsclubs.ui.FigmaTan
+import com.precon.mhsclubs.ui.FigmaText
+import com.precon.mhsclubs.ui.FigmaTitle
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
-/**
- * Club list screen displaying all available clubs.
- *
- * Shows a searchable list of clubs with their basic information.
- * Users can click on a club to view its details.
- *
- * @param clubs List of clubs to display
- * @param isLoading Whether clubs are currently being loaded
- * @param onAccountClick Callback when the account button is clicked
- * @param onClubClick Callback when a club is clicked
- */
 @Composable
 fun ClubListScreen(
     clubs: List<Club> = emptyList(),
     isLoading: Boolean = false,
     onJoinClubClick: () -> Unit = {},
     memberClubIds: Set<String> = emptySet(),
-    onClubClick: (String) -> Unit = {}
+    nextMeetings: Map<String, Event> = emptyMap(),
+    onClubClick: (String) -> Unit = {},
+    title: String = "My Clubs",
+    backLabel: String? = null,
+    onBackClick: (() -> Unit)? = null
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top app bar
-        TopAppBar(
-            title = { Text("MHS Clubs") },
-            actions = {
-                IconButton(onClick = onJoinClubClick) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Join a club")
-                }
-            }
-        )
-
-        // Search bar
-        var searchQuery by remember { mutableStateOf("") }
-        
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            label = { Text("Search club names") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
-        )
-
-        val visibleClubs = clubs.fuzzyMatch(searchQuery)
-
-        // Club list
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (visibleClubs.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No clubs found")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(visibleClubs) { club ->
-                    ClubCard(
-                        club = club,
-                        isMember = club.id in memberClubIds,
-                        onClick = { onClubClick(club.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Returns club matches ordered by relevance. Exact and prefix matches rank first, while
- * subsequence and small spelling errors keep discovery forgiving on a phone keyboard.
- */
-internal fun List<Club>.fuzzyMatch(query: String): List<Club> {
-    val normalizedQuery = query.normalizedSearchText()
-    if (normalizedQuery.isBlank()) return this
-
-    return mapNotNull { club ->
-        val fields = listOf(club.name, club.code, club.category, club.description)
-        fields.mapNotNull { field -> field.fuzzyScore(normalizedQuery) }.minOrNull()?.let { score ->
-            club to score
-        }
-    }
-        .sortedWith(compareBy<Pair<Club, Int>> { it.second }.thenBy { it.first.name })
-        .map { it.first }
-}
-
-private fun String.fuzzyScore(query: String): Int? {
-    val value = normalizedSearchText()
-    if (value.contains(query)) return value.indexOf(query)
-
-    val queryTokens = query.split(' ').filter { it.isNotBlank() }
-    val valueTokens = value.split(' ').filter { it.isNotBlank() }
-    if (queryTokens.isEmpty()) return 0
-
-    var score = 0
-    for (queryToken in queryTokens) {
-        val best = valueTokens.minOfOrNull { token ->
-            when {
-                token.contains(queryToken) -> token.indexOf(queryToken)
-                queryToken.isSubsequenceOf(token) -> token.length - queryToken.length
-                else -> queryToken.levenshteinDistance(token)
-            }
-        } ?: return null
-        if (best > 2) return null
-        score += best
-    }
-    return score + 10
-}
-
-private fun String.normalizedSearchText(): String =
-    lowercase().map { character -> if (character.isLetterOrDigit() || character == ' ') character else ' ' }
-        .joinToString("").trim()
-
-private fun String.isSubsequenceOf(value: String): Boolean {
-    var valueIndex = 0
-    for (character in this) {
-        valueIndex = value.indexOf(character, valueIndex)
-        if (valueIndex < 0) return false
-        valueIndex++
-    }
-    return true
-}
-
-private fun String.levenshteinDistance(other: String): Int {
-    var previous = IntArray(other.length + 1) { it }
-    forEachIndexed { row, character ->
-        val current = IntArray(other.length + 1)
-        current[0] = row + 1
-        other.forEachIndexed { column, otherCharacter ->
-            current[column + 1] = minOf(
-                previous[column + 1] + 1,
-                current[column] + 1,
-                previous[column] + if (character == otherCharacter) 0 else 1
+    FigmaScreen(Modifier.fillMaxSize()) {
+        if (backLabel != null && onBackClick != null) {
+            Text(
+                "‹  $backLabel",
+                color = FigmaTan,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .padding(top = 20.dp, bottom = 10.dp)
+                    .clickable(onClick = onBackClick)
             )
+        } else Box(Modifier.height(42.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FigmaTitle(title, compact = title != "My Clubs", modifier = Modifier.weight(1f))
+            if (title == "My Clubs") Icon(Icons.Default.Add, "Browse school clubs", tint = FigmaText, modifier = Modifier.padding(8.dp).clickable(onClick = onJoinClubClick))
         }
-        previous = current
-    }
-    return previous[other.length]
-}
-
-/**
- * Card displaying a single club.
- */
-@Composable
-fun ClubCard(
-    club: Club,
-    isMember: Boolean = false,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Club logo placeholder
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .aspectRatio(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.School,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Spacer(modifier = Modifier.size(16.dp))
-
-                // Club info
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = club.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    Text(
-                        text = club.code,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (isMember) {
-                        Text(
-                            text = "Member",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+        Box(Modifier.height(11.dp))
+        if (isLoading) {
+            Text("Loading clubs…", color = FigmaText, modifier = Modifier.padding(16.dp))
+        } else if (clubs.isEmpty()) {
+            Text(if (title == "My Clubs") "Add a club to see it here." else "No clubs available.", color = FigmaText, modifier = Modifier.padding(top = 20.dp))
+        } else if (title == "School Clubs") {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxSize()) {
+                items(clubs, key = { it.id }) { club ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(52.dp).background(FigmaTan).clickable { onClubClick(club.id) }.padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (club.id in memberClubIds) Icon(Icons.Default.StarBorder, null, tint = FigmaDarkText)
+                        if (club.id in memberClubIds) Box(Modifier.width(13.dp))
+                        Text(if (club.id in memberClubIds) "${club.name}" else club.name, color = FigmaDarkText, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.KeyboardArrowRight, null, tint = FigmaDarkText)
                     }
                 }
             }
-
-            // Club description
-            if (club.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = club.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Club category and meeting info
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = club.category,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                if (club.meetingDay != null) {
-                    Text(
-                        text = "${club.meetingDay} ${club.meetingTime ?: ""}".trim(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.fillMaxSize()) {
+                items(clubs, key = { it.id }) { club ->
+                    ClubCard(club, club.id in memberClubIds, nextMeetings[club.id], onClick = { onClubClick(club.id) })
                 }
             }
         }
     }
 }
 
-@Preview
 @Composable
-fun ClubListScreenPreview() {
-    MaterialTheme {
-        ClubListScreen(
-            clubs = listOf(
-                Club(
-                    id = "1",
-                    sheetSourceId = "sheet1",
-                    name = "Robotics Club",
-                    description = "Build and program robots for competitions",
-                    code = "ROBOT",
-                    category = "STEM",
-                    meetingDay = "Monday",
-                    meetingTime = "3:30 PM"
-                ),
-                Club(
-                    id = "2",
-                    sheetSourceId = "sheet2",
-                    name = "Chess Club",
-                    description = "Play chess and improve your skills",
-                    code = "CHESS",
-                    category = "Games",
-                    meetingDay = "Tuesday",
-                    meetingTime = "3:15 PM"
-                ),
-                Club(
-                    id = "3",
-                    sheetSourceId = "sheet3",
-                    name = "Debate Team",
-                    description = "Competitive debate and public speaking",
-                    code = "DEBATE",
-                    category = "Academic",
-                    meetingDay = "Wednesday",
-                    meetingTime = "3:00 PM"
-                )
-            ),
-            isLoading = false
+fun ClubCard(club: Club, isMember: Boolean = false, nextMeeting: Event? = null, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = Modifier.fillMaxWidth().height(205.dp).clip(shape).background(FigmaTan)
+            .border(1.dp, Color.White, shape).clickable(onClick = onClick)
+    ) {
+        Column(Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 17.dp).width(180.dp)) {
+            Text(club.name, color = FigmaDarkText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Meeting details", color = FigmaDarkText, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        FigmaPill(
+            nextMeeting?.let(::formatTime) ?: (club.meetingTime ?: "TBD"),
+            background = FigmaPage.copy(alpha = .55f), contentColor = FigmaDarkText,
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = 9.dp, top = 10.dp)
         )
+        Box(Modifier.align(Alignment.TopEnd).offset(x = (-52).dp, y = 45.dp).width(1.dp).height(75.dp).background(FigmaDarkText))
+        FigmaPill(
+            nextMeeting?.endTime?.let(::formatEndTime) ?: "TBD",
+            borderColor = FigmaRed, background = FigmaPage.copy(alpha = .55f), contentColor = FigmaDarkText,
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = 9.dp, top = 120.dp)
+        )
+        FigmaPill(club.meetingLocation ?: "TBD", borderColor = FigmaDarkText, modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 8.dp))
+        FigmaPill(nextMeeting?.let(::formatDate) ?: (club.meetingDay ?: "TBD"), borderColor = FigmaDarkText, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 8.dp))
     }
 }
+
+private fun formatTime(event: Event): String = event.startTime.toLocalDateTime(TimeZone.currentSystemDefault()).let { "${(it.hour + 11) % 12 + 1}:${it.minute.toString().padStart(2, '0')} ${if (it.hour < 12) "AM" else "PM"}" }
+private fun formatEndTime(time: kotlinx.datetime.Instant): String = time.toLocalDateTime(TimeZone.currentSystemDefault()).let { "${(it.hour + 11) % 12 + 1}:${it.minute.toString().padStart(2, '0')} ${if (it.hour < 12) "AM" else "PM"}" }
+private fun formatDate(event: Event): String = event.startTime.toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.month.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() }} ${it.dayOfMonth}, ${it.year}" }

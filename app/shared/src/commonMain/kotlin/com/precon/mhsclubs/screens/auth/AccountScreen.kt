@@ -1,234 +1,117 @@
 package com.precon.mhsclubs.screens.auth
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.precon.mhsclubs.auth.AuthService
 import com.precon.mhsclubs.auth.AuthState
 import com.precon.mhsclubs.model.User
-import com.precon.mhsclubs.model.UserRole
+import com.precon.mhsclubs.ui.FigmaActionButton
+import com.precon.mhsclubs.ui.FigmaCard
+import com.precon.mhsclubs.ui.FigmaDarkText
+import com.precon.mhsclubs.ui.FigmaPage
+import com.precon.mhsclubs.ui.FigmaRed
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaTan
+import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.coroutines.launch
 
-/**
- * Account screen displaying user profile information.
- *
- * Shows the user's name, email, role, and provides a sign-out button.
- *
- * @param authService The authentication service
- * @param onSignedOut Callback when the user signs out
- */
 @Composable
 fun AccountScreen(
     authService: AuthService,
+    memberType: String? = null,
+    notificationsEnabled: Boolean = false,
+    onNotificationsChange: (Boolean) -> Unit = {},
     onSignedOut: () -> Unit
 ) {
-    val authState by authService.authState.collectAsState(initial = AuthState.SignedOut)
+    val state by authService.authState.collectAsState(initial = AuthState.SignedOut)
     val scope = rememberCoroutineScope()
-    var isSigningOut by remember { mutableStateOf(false) }
-    var signOutError by remember { mutableStateOf<String?>(null) }
-
-    // Handle sign out
-    LaunchedEffect(authState) {
-        if (authState is AuthState.SignedOut) {
-            onSignedOut()
-        }
-    }
-
+    LaunchedEffect(state) { if (state is AuthState.SignedOut) onSignedOut() }
     AccountContent(
-        user = authService.currentUser,
-        isSigningOut = isSigningOut,
-        signOutError = signOutError,
-        onSignOut = {
-            scope.launch {
-                isSigningOut = true
-                signOutError = null
-                authService.signOut().onFailure { error ->
-                    signOutError = error.message ?: "Unable to sign out. Please try again."
-                }
-                isSigningOut = false
-            }
-        }
+        authService.currentUser,
+        memberType,
+        notificationsEnabled = notificationsEnabled,
+        onNotificationsChange = onNotificationsChange,
+        onSignOut = { scope.launch { authService.signOut() } }
     )
 }
 
-/**
- * Content of the account screen.
- */
 @Composable
 fun AccountContent(
     user: User?,
+    memberType: String? = null,
+    notificationsEnabled: Boolean = false,
+    onNotificationsChange: (Boolean) -> Unit = {},
     isSigningOut: Boolean = false,
     signOutError: String? = null,
     onSignOut: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Profile card
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                user?.avatarUrl?.takeIf { it.isNotBlank() }?.let { avatarUrl ->
-                    RemoteProfileAvatar(
-                        avatarUrl = avatarUrl,
-                        displayName = user.displayName,
-                        modifier = Modifier.size(80.dp)
-                    )
-                } ?: Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Profile",
-                    modifier = Modifier.size(80.dp)
-                )
-
-                // User name
-                Text(
-                    text = user?.displayName ?: "Unknown User",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // User email
-                Text(
-                    text = user?.email ?: "No email",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // User role badge
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    val roleText = when (user?.role) {
-                        UserRole.Student -> "Student"
-                        UserRole.Staff -> "Staff administrator"
-                        null -> "Unknown"
-                    }
-                    
-                    Text(
-                        text = roleText,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = when (user?.role) {
-                            UserRole.Staff -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
+    FigmaScreen(Modifier.fillMaxSize()) {
+        Box(Modifier.height(42.dp))
+        FigmaTitle("Your account", compact = true)
+        Box(Modifier.height(20.dp))
+        Row(Modifier.fillMaxWidth().height(104.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(52.dp)).background(FigmaTan).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            user?.avatarUrl?.takeIf { it.isNotBlank() }?.let { avatar ->
+                RemoteProfileAvatar(avatar, user.displayName, Modifier.size(64.dp).clip(CircleShape))
+            } ?: Box(Modifier.size(64.dp).clip(CircleShape).background(FigmaPage), contentAlignment = Alignment.Center) { Text(user?.displayName?.initials() ?: "?", color = FigmaRed, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp) }
+            Column(Modifier.padding(start = 16.dp)) {
+                Text(user?.displayName ?: "Unknown User", color = FigmaDarkText, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                Text("${memberType ?: "Student"} member", color = FigmaDarkText, fontSize = 13.sp)
+            }
+        }
+        Box(Modifier.height(20.dp))
+        FigmaCard(Modifier.fillMaxWidth().height(59.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Notifications", color = FigmaDarkText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Allow Permission", color = FigmaDarkText, fontSize = 13.sp)
                 }
-            }
-        }
-
-        // App info card
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.School,
-                    contentDescription = "MHS Clubs",
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "MHS Clubs",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Manage your club memberships and events",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = onNotificationsChange,
+                    modifier = Modifier.scale(.72f),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF34C759),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color(0xFFE5E5EA),
+                        uncheckedBorderColor = Color.Transparent
+                    )
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Sign out button
-        Button(
-            onClick = onSignOut,
-            enabled = !isSigningOut,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Logout,
-                contentDescription = "Sign Out"
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(if (isSigningOut) "Signing out…" else "Sign Out")
-        }
-
-        signOutError?.let { message ->
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+        Box(Modifier.height(11.dp))
+        FigmaCard(Modifier.fillMaxWidth().height(59.dp)) { Text("Attendance", color = FigmaDarkText, fontSize = 18.sp, fontWeight = FontWeight.Bold); Text("See all past attendance records", color = FigmaDarkText, fontSize = 13.sp) }
+        Box(Modifier.height(20.dp))
+        FigmaActionButton(if (isSigningOut) "Signing out…" else "Sign Out", Modifier.fillMaxWidth(), Icons.Default.Logout, background = Color(0xFF441D1E), contentColor = Color(0xFFFF424C), onClick = onSignOut)
+        signOutError?.let { Text(it, color = Color(0xFFFF424C), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp)) }
     }
 }
 
-@Preview
-@Composable
-fun AccountScreenPreview() {
-    MaterialTheme {
-        AccountContent(
-            user = User(
-                id = "1",
-                firebaseUid = "abc123",
-                email = "student@students.mcpasd.k12.wi.us",
-                displayName = "John Doe",
-                role = UserRole.Student
-            ),
-            onSignOut = {}
-        )
-    }
-}
+private fun String.initials(): String = split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("")

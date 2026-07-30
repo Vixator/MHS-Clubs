@@ -5,7 +5,10 @@ import com.precon.mhsclubs.model.Club
 import com.precon.mhsclubs.models.Membership
 import com.precon.mhsclubs.models.MembershipRole
 import com.precon.mhsclubs.models.MembershipStatus
+import com.precon.mhsclubs.models.AttendanceStatus
 import com.precon.mhsclubs.screens.announcements.Announcement
+import com.precon.mhsclubs.screens.rsvp.Rsvp
+import com.precon.mhsclubs.screens.rsvp.RsvpStatus
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
 import io.ktor.client.request.get
@@ -31,10 +34,14 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         runCatching {
             Club(
                 id = item.id(), sheetSourceId = item.stringOrDefault("sheet_source_id", item.id()),
-                name = item.string("name"), description = item.stringOrDefault("description", ""),
+                name = item.string("Club Name", "name", "club_name", "clubName"),
+                description = item.stringOrDefault("Description", item.stringOrDefault("description", "")),
                 logoUrl = item.nullableString("logo_url", "logoUrl"), category = item.stringOrDefault("category", "General"),
-                meetingDay = item.nullableString("meeting_day", "meetingDay"), meetingTime = item.nullableString("meeting_time", "meetingTime"),
-                meetingLocation = item.nullableString("meeting_location", "meetingLocation"), code = item.string("code")
+                meetingDay = item.nullableString("Meeting Days", "meeting_day", "meetingDay"), meetingTime = item.nullableString("Meeting Time", "meeting_time", "meetingTime"),
+                meetingLocation = item.nullableString("Meeting Location", "meeting_location", "meetingLocation"),
+                advisorName = item.nullableString("Advisor", "advisor", "advisor_name", "advisorName"),
+                contactEmail = item.nullableString("Contact", "contact", "advisor_email", "advisorEmail"),
+                memberCount = item.nullableString("member_count", "memberCount")?.toIntOrNull(), code = item.stringOrDefault("code", "")
             )
         }.getOrNull()
     }
@@ -93,6 +100,46 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
                 updatedAt = item.nullableString("updated_at", "updatedAt", "UpdatedAt")?.let(Instant::parse) ?: posted
             )
         }.getOrNull()
+    }
+
+    override suspend fun loadRsvps(firebaseIdToken: String): List<Rsvp> = records("/api/my/rsvps", firebaseIdToken).mapNotNull { item ->
+        runCatching {
+            Rsvp(item.id(), item.string("event_id", "eventId"), item.string("firebase_uid", "userId"), when (item.stringOrDefault("status", "").lowercase()) {
+                "yes", "going" -> RsvpStatus.Going
+                "no", "not_going" -> RsvpStatus.NotGoing
+                else -> RsvpStatus.Maybe
+            }, item.nullableString("responded_at", "respondedAt", "CreatedAt")?.let(Instant::parse) ?: Instant.fromEpochMilliseconds(0))
+        }.getOrNull()
+    }
+
+    override suspend fun respondToRsvp(firebaseIdToken: String, eventId: String, status: String) {
+        request("POST", "/api/rsvps/respond", firebaseIdToken, "{\"eventId\":\"$eventId\",\"status\":\"$status\"}")
+    }
+
+    override suspend fun loadMemberCount(firebaseIdToken: String, clubId: String): Int {
+        val data = request("GET", "/api/clubs/$clubId/member-count", firebaseIdToken).jsonObject["data"]!!.jsonObject
+        return data["memberCount"]?.toString()?.trim('"')?.toIntOrNull() ?: 0
+    }
+
+    override suspend fun loadAttendanceRoster(firebaseIdToken: String, clubId: String, eventId: String): List<ClubMember> =
+        records("/api/clubs/$clubId/attendance/$eventId", firebaseIdToken).mapNotNull { item -> runCatching {
+            ClubMember(item.string("userId"), item.stringOrDefault("displayName", item.string("userId")), item.stringOrDefault("email", ""), item.nullableString("status")?.let(AttendanceStatus::fromValue))
+        }.getOrNull() }
+
+    override suspend fun saveAttendance(firebaseIdToken: String, clubId: String, eventId: String, records: List<AttendanceUpdate>) {
+        val body = records.joinToString(prefix = "{\"records\":[", postfix = "]}") { "{\"userId\":\"${it.userId}\",\"status\":\"${it.status.value}\"}" }
+        request("PUT", "/api/clubs/$clubId/attendance/$eventId", firebaseIdToken, body)
+    }
+
+    private suspend fun request(method: String, path: String, token: String, body: String? = null): JsonObject {
+        val url = "${baseUrl.trimEnd('/')}$path"
+        val response = when (method) {
+            "POST" -> client.post(url) { header(HttpHeaders.Authorization, "Bearer $token"); header(HttpHeaders.ContentType, ContentType.Application.Json.toString()); setBody(body ?: "{}") }
+            "PUT" -> client.put(url) { header(HttpHeaders.Authorization, "Bearer $token"); header(HttpHeaders.ContentType, ContentType.Application.Json.toString()); setBody(body ?: "{}") }
+            else -> client.get(url) { header(HttpHeaders.Authorization, "Bearer $token"); accept(ContentType.Application.Json) }
+        }
+        if (!response.status.isSuccess()) error("Server request failed with HTTP ${response.status}")
+        return json.parseToJsonElement(response.bodyAsText()).jsonObject
     }
 
     private suspend fun records(path: String, token: String): List<JsonObject> = runCatching {

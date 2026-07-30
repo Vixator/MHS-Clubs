@@ -5,7 +5,10 @@ import com.precon.mhsclubs.model.Club
 import com.precon.mhsclubs.models.Membership
 import com.precon.mhsclubs.models.MembershipRole
 import com.precon.mhsclubs.models.MembershipStatus
+import com.precon.mhsclubs.models.AttendanceStatus
 import com.precon.mhsclubs.screens.announcements.Announcement
+import com.precon.mhsclubs.screens.rsvp.Rsvp
+import com.precon.mhsclubs.screens.rsvp.RsvpStatus
 import kotlinx.datetime.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,12 +23,16 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
         runCatching {
             Club(
                 id = item.id(), sheetSourceId = item.optString("sheet_source_id", item.id()),
-                name = item.string("name"), description = item.optString("description", ""),
+                name = item.string("Club Name", "name", "club_name", "clubName"),
+                description = item.optString("Description", item.optString("description", "")),
                 logoUrl = item.nullableString("logo_url", "logoUrl"), category = item.optString("category", "General"),
-                meetingDay = item.nullableString("meeting_day", "meetingDay"),
-                meetingTime = item.nullableString("meeting_time", "meetingTime"),
-                meetingLocation = item.nullableString("meeting_location", "meetingLocation"),
-                code = item.string("code"), isActive = item.optBoolean("is_active", true)
+                meetingDay = item.nullableString("Meeting Days", "meeting_day", "meetingDay"),
+                meetingTime = item.nullableString("Meeting Time", "meeting_time", "meetingTime"),
+                meetingLocation = item.nullableString("Meeting Location", "meeting_location", "meetingLocation"),
+                advisorName = item.nullableString("Advisor", "advisor", "advisor_name", "advisorName"),
+                contactEmail = item.nullableString("Contact", "contact", "advisor_email", "advisorEmail"),
+                memberCount = item.nullableInt("member_count", "memberCount"),
+                code = item.optString("code", ""), isActive = item.optBoolean("is_active", true)
             )
         }.getOrNull()
     }
@@ -77,6 +84,51 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
         }.getOrNull()
     }
 
+    override suspend fun loadRsvps(firebaseIdToken: String): List<Rsvp> = withContext(Dispatchers.IO) { records("/api/my/rsvps", firebaseIdToken) }.mapNotNull { item ->
+        runCatching {
+            val respondedAt = item.nullableString("responded_at", "respondedAt", "CreatedAt", "created_at")?.let(Instant::parse)
+                ?: Instant.fromEpochMilliseconds(0)
+            Rsvp(
+                id = item.id(), eventId = item.string("event_id", "eventId"), userId = item.string("firebase_uid", "userId"),
+                status = when (item.optString("status").lowercase()) {
+                    "yes", "going" -> RsvpStatus.Going
+                    "no", "not_going" -> RsvpStatus.NotGoing
+                    else -> RsvpStatus.Maybe
+                }, respondedAt = respondedAt
+            )
+        }.getOrNull()
+    }
+
+    override suspend fun respondToRsvp(firebaseIdToken: String, eventId: String, status: String) {
+        withContext(Dispatchers.IO) {
+            request("POST", "/api/rsvps/respond", firebaseIdToken, JSONObject().put("eventId", eventId).put("status", status).toString())
+        }
+    }
+
+    override suspend fun loadMemberCount(firebaseIdToken: String, clubId: String): Int = withContext(Dispatchers.IO) {
+        val data = JSONObject(request("GET", "/api/clubs/$clubId/member-count", firebaseIdToken)).getJSONObject("data")
+        data.optInt("memberCount", 0)
+    }
+
+    override suspend fun loadAttendanceRoster(firebaseIdToken: String, clubId: String, eventId: String): List<ClubMember> = withContext(Dispatchers.IO) {
+        records("/api/clubs/$clubId/attendance/$eventId", firebaseIdToken).mapNotNull { item ->
+            runCatching {
+                ClubMember(
+                    userId = item.string("userId"), displayName = item.optString("displayName", item.string("userId")),
+                    email = item.optString("email", ""),
+                    status = item.nullableString("status")?.let(AttendanceStatus::fromValue)
+                )
+            }.getOrNull()
+        }
+    }
+
+    override suspend fun saveAttendance(firebaseIdToken: String, clubId: String, eventId: String, records: List<AttendanceUpdate>) {
+        withContext(Dispatchers.IO) {
+            val values = JSONArray().apply { records.forEach { put(JSONObject().put("userId", it.userId).put("status", it.status.value)) } }
+            request("PUT", "/api/clubs/$clubId/attendance/$eventId", firebaseIdToken, JSONObject().put("records", values).toString())
+        }
+    }
+
     private fun records(path: String, token: String): List<JSONObject> {
         val response = request("GET", path, token)
         val data = JSONObject(response).getJSONObject("data")
@@ -108,6 +160,9 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
     } ?: error("Missing required field ${names.first()}")
     private fun JSONObject.nullableString(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
         opt(name)?.takeIf { it != JSONObject.NULL }?.toString()?.takeIf { it.isNotBlank() }
+    }
+    private fun JSONObject.nullableInt(vararg names: String): Int? = names.firstNotNullOfOrNull { name ->
+        opt(name)?.takeIf { it != JSONObject.NULL }?.toString()?.toIntOrNull()
     }
 
     private fun JSONObject.toMembershipOrNull(): Membership? = runCatching {

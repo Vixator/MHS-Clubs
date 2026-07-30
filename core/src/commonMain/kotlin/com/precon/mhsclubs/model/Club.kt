@@ -21,6 +21,12 @@ data class Club(
     val meetingDay: String? = null,
     val meetingTime: String? = null,
     val meetingLocation: String? = null,
+    /** Display name from the clubs table's Advisor field. */
+    val advisorName: String? = null,
+    /** Adviser email from the clubs table's Contact field. */
+    val contactEmail: String? = null,
+    /** Computed from active membership records by the authenticated API. */
+    val memberCount: Int? = null,
     val code: String,
     val isActive: Boolean = true,
     val createdAt: String = Clock.System.now().toString(),

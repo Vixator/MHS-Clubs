@@ -1,23 +1,11 @@
 package com.precon.mhsclubs.screens.clubs
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,10 +14,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.precon.mhsclubs.ui.FigmaActionButton
+import com.precon.mhsclubs.ui.FigmaBackLabel
+import com.precon.mhsclubs.ui.FigmaOutlinedTextField
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaTan
+import com.precon.mhsclubs.ui.FigmaText
+import com.precon.mhsclubs.ui.FigmaTitle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 
 /**
  * Join club screen for entering a club name.
@@ -50,90 +47,45 @@ fun JoinClubScreen(
 ) {
     var clubName by remember { mutableStateOf("") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Top bar with back button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back"
-                )
-            }
-            Spacer(modifier = Modifier.size(16.dp))
-            Text(
-                text = "Join a Club",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Instructions
+    FigmaScreen(Modifier.fillMaxSize()) {
+        Box(Modifier.height(19.dp))
+        FigmaBackLabel("My Clubs", onBackClick)
+        FigmaTitle("Join a Club", compact = true)
+        Box(Modifier.height(14.dp))
         Text(
             text = "Enter the name of the club you want to join:",
-            style = MaterialTheme.typography.bodyLarge
+            color = FigmaText,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(top = 2.dp)
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
+        Box(Modifier.height(20.dp))
+        FigmaOutlinedTextField(
             value = clubName,
             onValueChange = { clubName = it },
-            label = { Text("Club name") },
-            placeholder = { Text("e.g., Robotics Club") },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text
-            ),
+            placeholder = "e.g., Robotics Club",
             singleLine = true,
+            isError = errorMessage != null,
+            keyboardType = KeyboardType.Text,
+            errorMessage = errorMessage,
             modifier = Modifier.fillMaxWidth()
         )
-
-        // Error message
-        if (errorMessage != null) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+        Box(Modifier.height(24.dp))
+        if (isLoading) {
+            CircularProgressIndicator(color = FigmaTan, modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else {
+            FigmaActionButton(
+                text = "Join Club",
+                icon = Icons.Default.Check,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = clubName.isNotBlank(),
+                onClick = { onJoinClick(clubName) }
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Join button
-        Button(
-            onClick = { onJoinClick(clubName) },
-            enabled = clubName.isNotBlank() && !isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isLoading) {
-                // Loading indicator would go here
-                Text("Joining...")
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = "Join"
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text("Join Club")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Club code help
+        Box(Modifier.height(24.dp))
         Text(
             text = "Search for the club name exactly as it appears in the club directory.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = FigmaText.copy(alpha = 0.6f),
+            fontSize = 12.sp
         )
     }
 }
@@ -141,17 +93,13 @@ fun JoinClubScreen(
 @Preview
 @Composable
 fun JoinClubScreenPreview() {
-    MaterialTheme {
-        JoinClubScreen()
-    }
+    JoinClubScreen()
 }
 
 @Preview
 @Composable
 fun JoinClubScreenWithErrorPreview() {
-    MaterialTheme {
-        JoinClubScreen(
-            errorMessage = "Club name not found. Please check and try again."
-        )
-    }
+    JoinClubScreen(
+        errorMessage = "Club name not found. Please check and try again."
+    )
 }

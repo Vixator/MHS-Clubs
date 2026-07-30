@@ -19,4 +19,6 @@ data class Event(
     val endTime: Instant?,
     val createdAt: Instant,
     val updatedAt: Instant,
+    /** True when this is a locally derived recurring club meeting rather than an events-table row. */
+    val isScheduledMeeting: Boolean = false,
 )

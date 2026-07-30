@@ -1,224 +1,106 @@
 package com.precon.mhsclubs.screens.announcements
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Announcement
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.precon.mhsclubs.model.Club
+import com.precon.mhsclubs.ui.FigmaCard
+import com.precon.mhsclubs.ui.FigmaDarkText
+import com.precon.mhsclubs.ui.FigmaPill
+import com.precon.mhsclubs.ui.FigmaClubFilter
+import com.precon.mhsclubs.ui.FigmaRed
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaText
+import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * Announcement list screen displaying club announcements.
- *
- * Shows a list of announcements with their title, content, author, and timestamp.
- *
- * @param announcements List of announcements to display
- * @param onAnnouncementClick Callback when an announcement is clicked
- */
 @Composable
-fun AnnouncementListScreen(
-    announcements: List<Announcement> = emptyList(),
-    onAnnouncementClick: (String) -> Unit = {}
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Announcements",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        if (announcements.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Announcement,
-                    contentDescription = "No Announcements",
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("No announcements yet")
+fun AnnouncementListScreen(announcements: List<Announcement> = emptyList(), clubs: List<Club> = emptyList(), onAnnouncementClick: (String) -> Unit = {}) {
+    var selectedClubId by remember { mutableStateOf<String?>(null) }
+    var expanded by remember { mutableStateOf(false) }
+    val visible = announcements.filter { selectedClubId == null || selectedClubId == it.clubId }
+    FigmaScreen(Modifier.fillMaxSize()) {
+        Box(Modifier.height(42.dp))
+        FigmaTitle("Announcements")
+        Box(Modifier.height(8.dp))
+        Box {
+            FigmaClubFilter(
+                clubs.firstOrNull { it.id == selectedClubId }?.name ?: "Club Selector",
+                onClick = { expanded = true }
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text("All clubs") }, onClick = { selectedClubId = null; expanded = false })
+                clubs.forEach { club -> DropdownMenuItem(text = { Text(club.name) }, onClick = { selectedClubId = club.id; expanded = false }) }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(announcements) { announcement ->
-                    AnnouncementCard(
-                        announcement = announcement,
-                        onClick = { onAnnouncementClick(announcement.id) }
-                    )
-                }
+        }
+        Box(Modifier.height(15.dp))
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(visible, key = { it.id }) { announcement ->
+                AnnouncementCard(
+                    announcement,
+                    clubs.firstOrNull { it.id == announcement.clubId }?.name ?: announcement.title
+                ) { onAnnouncementClick(announcement.id) }
+                Box(Modifier.height(22.dp))
+            }
+            if (visible.isEmpty()) item { Text("No announcements yet", color = FigmaText, fontSize = 14.sp) }
+        }
+    }
+}
+
+@Composable
+fun AnnouncementCard(announcement: Announcement, clubName: String, onClick: () -> Unit) {
+    FigmaCard(Modifier.fillMaxWidth().height(100.dp), onClick = onClick) {
+        Row(Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    buildAnnotatedString {
+                        append(clubName)
+                        append(" · ")
+                        withStyle(SpanStyle(color = FigmaRed)) { append(announcement.authorName) }
+                    },
+                    color = FigmaDarkText,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(announcement.content, color = FigmaDarkText, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Column {
+                FigmaPill(announcement.postedAt.timeLabel(), borderColor = FigmaText)
+                Box(Modifier.height(10.dp))
+                FigmaPill(announcement.postedAt.dateLabel(), borderColor = FigmaText)
             }
         }
     }
 }
 
-/**
- * Card displaying a single announcement.
- */
-@Composable
-fun AnnouncementCard(
-    announcement: Announcement,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Announcement title
-            Text(
-                text = announcement.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Announcement content
-            Text(
-                text = announcement.content,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Announcement metadata
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Author",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = announcement.authorName,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = "Time",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = formatPostedAt(announcement.postedAt),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Formats an Instant as a relative time string.
- */
-fun formatPostedAt(instant: Instant): String {
-    val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-    val now = Instant.fromEpochSeconds(0).toLocalDateTime(TimeZone.currentSystemDefault())
-    
-    // Simple date formatting for preview
-    return "${localDateTime.month.name.take(3)} ${localDateTime.dayOfMonth}"
-}
-
-/**
- * Announcement model for the UI layer.
- * This extends the core Announcement model with display-friendly fields.
- */
-data class Announcement(
-    val id: String,
-    val clubId: String,
-    val title: String,
-    val content: String,
-    val authorId: String,
-    val authorName: String,
-    val isActive: Boolean,
-    val postedAt: Instant,
-    val updatedAt: Instant
-)
-
-@Preview
-@Composable
-fun AnnouncementListScreenPreview() {
-    MaterialTheme {
-        AnnouncementListScreen(
-            announcements = listOf(
-                Announcement(
-                    id = "1",
-                    clubId = "1",
-                    title = "Robotics Competition Results",
-                    content = "Congratulations to everyone who participated in the state robotics competition! We placed 2nd overall and won the Innovation Award.",
-                    authorId = "teacher1",
-                    authorName = "Mr. Smith",
-                    isActive = true,
-                    postedAt = Instant.parse("2024-03-16T00:00:00Z"),
-                    updatedAt = Instant.parse("2024-03-16T00:00:00Z")
-                ),
-                Announcement(
-                    id = "2",
-                    clubId = "1",
-                    title = "Next Meeting",
-                    content = "Our next meeting will be on Monday at 3:30 PM in Room 204. We'll be working on our new robot design.",
-                    authorId = "student1",
-                    authorName = "Jane Doe",
-                    isActive = true,
-                    postedAt = Instant.parse("2024-03-18T00:00:00Z"),
-                    updatedAt = Instant.parse("2024-03-18T00:00:00Z")
-                )
-            )
-        )
-    }
-}
+data class Announcement(val id: String, val clubId: String, val title: String, val content: String, val authorId: String, val authorName: String, val isActive: Boolean, val postedAt: Instant, val updatedAt: Instant)
+private fun Instant.timeLabel(): String = toLocalDateTime(TimeZone.currentSystemDefault()).let { "${(it.hour + 11) % 12 + 1}:${it.minute.toString().padStart(2, '0')} ${if (it.hour < 12) "AM" else "PM"}" }
+private fun Instant.dateLabel(): String = toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.month.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() }} ${it.dayOfMonth}, ${it.year}" }

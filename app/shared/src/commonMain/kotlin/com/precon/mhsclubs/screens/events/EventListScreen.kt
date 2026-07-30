@@ -1,7 +1,7 @@
 package com.precon.mhsclubs.screens.events
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,9 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,9 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.precon.mhsclubs.models.Event
+import com.precon.mhsclubs.ui.FigmaCard
+import com.precon.mhsclubs.ui.FigmaDarkText
+import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaTan
+import com.precon.mhsclubs.ui.FigmaText
+import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.Instant
-import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -47,27 +51,21 @@ fun EventListScreen(
     events: List<Event> = emptyList(),
     onEventClick: (String) -> Unit = {}
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Events",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp)
-        )
-
+    FigmaScreen(Modifier.fillMaxSize()) {
+        Box(Modifier.height(42.dp))
+        FigmaTitle("Events", compact = true)
+        Box(Modifier.height(11.dp))
         if (events.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("No events found")
-            }
+            Text(
+                "No events found",
+                color = FigmaText,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(top = 20.dp)
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(events) { event ->
                     EventCard(
@@ -88,92 +86,91 @@ fun EventCard(
     event: Event,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+    FigmaCard(
+        modifier = Modifier.fillMaxWidth().height(106.dp),
         onClick = onClick
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Event title
             Text(
                 text = event.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                color = FigmaDarkText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
-            // Event date and time
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.CalendarToday,
                     contentDescription = "Date",
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = FigmaTan
                 )
                 Text(
                     text = formatDate(event.startTime),
-                    style = MaterialTheme.typography.bodyMedium
+                    color = FigmaDarkText,
+                    fontSize = 14.sp
                 )
             }
 
-            // Event time
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Timer,
                     contentDescription = "Time",
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = FigmaTan
                 )
                 Text(
                     text = formatTime(event.startTime, event.endTime),
-                    style = MaterialTheme.typography.bodyMedium
+                    color = FigmaDarkText,
+                    fontSize = 14.sp
                 )
             }
 
-            // Event location
             if (event.location != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = "Location",
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = FigmaTan
                     )
                     Text(
                         text = event.location,
-                        style = MaterialTheme.typography.bodyMedium
+                        color = FigmaDarkText,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            // Event description
             if (event.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = event.description,
-                    style = MaterialTheme.typography.bodySmall,
+                    color = FigmaDarkText,
+                    fontSize = 13.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
         }
     }
 }
@@ -191,46 +188,46 @@ fun formatDate(instant: Instant): String {
  */
 fun formatTime(startTime: Instant, endTime: Instant?): String {
     val startLocal = startTime.toLocalDateTime(TimeZone.currentSystemDefault())
-    val startTimeStr = "${startLocal.hour}:${startLocal.minute.toString().padStart(2, '0')}"
-    
+    val startHour = (startLocal.hour + 11) % 12 + 1
+    val startTimeStr = "$startHour:${startLocal.minute.toString().padStart(2, '0')} ${if (startLocal.hour < 12) "AM" else "PM"}"
+
     if (endTime != null) {
         val endLocal = endTime.toLocalDateTime(TimeZone.currentSystemDefault())
-        val endTimeStr = "${endLocal.hour}:${endLocal.minute.toString().padStart(2, '0')}"
+        val endHour = (endLocal.hour + 11) % 12 + 1
+        val endTimeStr = "$endHour:${endLocal.minute.toString().padStart(2, '0')} ${if (endLocal.hour < 12) "AM" else "PM"}"
         return "$startTimeStr - $endTimeStr"
     }
-    
+
     return startTimeStr
 }
 
 @Preview
 @Composable
 fun EventListScreenPreview() {
-    MaterialTheme {
-        EventListScreen(
-            events = listOf(
-                Event(
-                    id = "1",
-                    clubId = "1",
-                    title = "Robotics Competition",
-                    description = "Annual robotics competition at the state fair",
-                    location = "State Fair Grounds",
-                    startTime = Instant.parse("2024-03-15T09:00:00Z"),
-                    endTime = Instant.parse("2024-03-15T17:00:00Z"),
-                    createdAt = Instant.parse("2024-01-01T00:00:00Z"),
-                    updatedAt = Instant.parse("2024-01-01T00:00:00Z")
-                ),
-                Event(
-                    id = "2",
-                    clubId = "1",
-                    title = "Weekly Meeting",
-                    description = "Regular team meeting to work on projects",
-                    location = "Room 204",
-                    startTime = Instant.parse("2024-03-20T15:30:00Z"),
-                    endTime = Instant.parse("2024-03-20T17:00:00Z"),
-                    createdAt = Instant.parse("2024-01-01T00:00:00Z"),
-                    updatedAt = Instant.parse("2024-01-01T00:00:00Z")
-                )
+    EventListScreen(
+        events = listOf(
+            Event(
+                id = "1",
+                clubId = "1",
+                title = "Robotics Competition",
+                description = "Annual robotics competition at the state fair",
+                location = "State Fair Grounds",
+                startTime = Instant.parse("2024-03-15T09:00:00Z"),
+                endTime = Instant.parse("2024-03-15T17:00:00Z"),
+                createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+                updatedAt = Instant.parse("2024-01-01T00:00:00Z")
+            ),
+            Event(
+                id = "2",
+                clubId = "1",
+                title = "Weekly Meeting",
+                description = "Regular team meeting to work on projects",
+                location = "Room 204",
+                startTime = Instant.parse("2024-03-20T15:30:00Z"),
+                endTime = Instant.parse("2024-03-20T17:00:00Z"),
+                createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+                updatedAt = Instant.parse("2024-01-01T00:00:00Z")
             )
         )
-    }
+    )
 }

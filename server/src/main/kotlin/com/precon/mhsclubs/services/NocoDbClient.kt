@@ -1,6 +1,7 @@
 package com.precon.mhsclubs.services
 
 import com.precon.mhsclubs.environment
+import com.precon.mhsclubs.auth.UserIdentity
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -8,7 +9,13 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import com.google.gson.JsonObject
+import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 
 /** Server-only NocoDB v2 Records API client. API tokens never leave Ktor. */
@@ -77,6 +84,75 @@ class NocoDbClient(
         listRecords("memberships", where = "(Id,eq,$membershipId)~and(firebase_uid,eq,$firebaseUid)")
     ).isNotEmpty()
 
+    fun isActiveMember(firebaseUid: String, clubId: String): Boolean = records(
+        listRecords("memberships", where = "(firebase_uid,eq,$firebaseUid)~and(club_id,eq,$clubId)~and(status,eq,active)")
+    ).isNotEmpty()
+
+    fun activeMemberIds(clubId: String): Set<String> = records(
+        listRecords("memberships", where = "(club_id,eq,$clubId)~and(status,eq,active)")
+    ).mapNotNull { it.string("firebase_uid", "userId") }.toSet()
+
+    fun activeMemberCount(clubId: String): Int = activeMemberIds(clubId).size
+
+    /** Adviser authorization is based strictly on the clubs table's Contact email. */
+    fun canAdvise(identity: UserIdentity, clubId: String): Boolean = clubById(clubId)
+        ?.string("Contact", "contact", "advisor_email", "advisorEmail")
+        ?.trim()
+        ?.equals(identity.email.trim(), ignoreCase = true) == true
+
+    fun clubForEventKey(eventId: String): String? = scheduledClubId(eventId) ?: records(listRecords("events", where = "(Id,eq,$eventId)"))
+        .singleOrNull()
+        ?.string("club_id", "clubId")
+
+    fun eventBelongsToClub(eventId: String, clubId: String): Boolean = clubForEventKey(eventId) == clubId
+
+    fun eventStart(eventId: String): Instant? {
+        val scheduled = scheduledClubId(eventId)
+        if (scheduled != null) {
+            val date = scheduledDate(eventId) ?: return null
+            val meetingTime = clubById(scheduled)?.string("Meeting Time", "meeting_time", "meetingTime") ?: return null
+            val match = Regex("(\\d{1,2}):(\\d{2})\\s*([AaPp][Mm])").find(meetingTime) ?: return null
+            val hour12 = match.groupValues[1].toIntOrNull() ?: return null
+            val minute = match.groupValues[2].toIntOrNull() ?: return null
+            val hour = (hour12 % 12) + if (match.groupValues[3].equals("pm", true)) 12 else 0
+            return ZonedDateTime.of(date, LocalTime.of(hour, minute), schoolZone).toInstant()
+        }
+        return records(listRecords("events", where = "(Id,eq,$eventId)"))
+            .singleOrNull()
+            ?.string("start_time", "startTime")
+            ?.let { runCatching { Instant.parse(it) }.getOrNull() }
+    }
+
+    fun findRsvp(firebaseUid: String, eventId: String): String? = records(
+        listRecords("rsvps", where = "(firebase_uid,eq,$firebaseUid)~and(event_id,eq,$eventId)")
+    ).singleOrNull()?.string("Id", "id")
+
+    /** Returns roster records with their saved attendance status, without exposing unrelated users. */
+    fun attendanceRoster(clubId: String, eventId: String): String {
+        val memberIds = activeMemberIds(clubId)
+        val users = records(listRecords("users")).associateBy { it.string("firebase_uid", "firebaseUid") }
+        val attendance = records(listRecords("attendance", where = "(event_id,eq,$eventId)")).associateBy { it.string("user_id", "userId") }
+        val list = JsonArray()
+        memberIds.forEach { uid ->
+            val user = users[uid]
+            val row = JsonObject().apply {
+                addProperty("userId", uid)
+                addProperty("displayName", user?.string("display_name", "displayName", "name") ?: uid)
+                addProperty("email", user?.string("email") ?: "")
+                attendance[uid]?.string("status")?.let { addProperty("status", it) }
+            }
+            list.add(row)
+        }
+        return JsonObject().apply { add("list", list) }.toString()
+    }
+
+    fun upsertAttendance(clubId: String, eventId: String, userId: String, status: String) {
+        val existing = records(listRecords("attendance", where = "(event_id,eq,$eventId)~and(user_id,eq,$userId)"))
+            .singleOrNull()?.string("Id", "id")
+        val body = """{"club_id":"$clubId","event_id":"$eventId","user_id":"$userId","status":"$status"}"""
+        if (existing == null) createRecord("attendance", body) else updateRecord("attendance", existing, """{"status":"$status"}""")
+    }
+
     /** Keeps the student-facing data boundary on the server, not in the Android app. */
     fun recordsForClubs(resource: String, clubIds: Set<String>): String {
         if (clubIds.isEmpty()) return "{\"list\":[]}"
@@ -92,6 +168,16 @@ class NocoDbClient(
     fun findClubIdByName(clubName: String): String? = records(listRecords("clubs"))
         .singleOrNull { it.string("name")?.trim()?.equals(clubName.trim(), ignoreCase = true) == true }
         ?.string("Id", "id")
+
+    private fun clubById(clubId: String): JsonObject? = records(listRecords("clubs", where = "(Id,eq,$clubId)")).singleOrNull()
+
+    private fun scheduledClubId(eventId: String): String? = Regex("^meeting_(.+)_\\d{4}-\\d{2}-\\d{2}$")
+        .matchEntire(eventId)?.groupValues?.get(1)
+
+    private fun scheduledDate(eventId: String): LocalDate? = Regex("_(\\d{4}-\\d{2}-\\d{2})$")
+        .find(eventId)?.groupValues?.get(1)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    private val schoolZone: ZoneId = ZoneId.of("America/Chicago")
 
     private fun tableFor(resource: String): String {
         check(isConfigured()) { "NocoDB is not configured" }
