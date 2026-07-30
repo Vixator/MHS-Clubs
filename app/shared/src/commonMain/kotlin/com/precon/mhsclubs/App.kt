@@ -47,6 +47,8 @@ import com.precon.mhsclubs.screens.admin.AdminDashboardScreen
 import com.precon.mhsclubs.screens.announcements.AnnouncementListScreen
 import com.precon.mhsclubs.screens.attendance.AttendanceMember
 import com.precon.mhsclubs.screens.attendance.AttendanceScreen
+import com.precon.mhsclubs.screens.attendance.StudentAttendanceScreen
+import com.precon.mhsclubs.models.Attendance
 import com.precon.mhsclubs.models.AttendanceStatus
 import com.precon.mhsclubs.screens.auth.AccountScreen
 import com.precon.mhsclubs.screens.auth.LoginScreen
@@ -65,7 +67,10 @@ import com.precon.mhsclubs.models.MembershipStatus
 import com.precon.mhsclubs.models.recurringMeetings
 import com.precon.mhsclubs.screens.rsvp.RsvpStatus
 import kotlinx.datetime.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Main app component that handles authentication and navigation.
@@ -96,11 +101,20 @@ sealed class AppScreen {
     object EventList : AppScreen()
     object Calendar : AppScreen()
     object Account : AppScreen()
+    object StudentAttendance : AppScreen()
     object AdminDashboard : AppScreen()
     object Announcements : AppScreen()
     object Attendance : AppScreen()
     object Rsvp : AppScreen()
 }
+
+private data class ContentSnapshot(
+    val clubs: List<com.precon.mhsclubs.model.Club>,
+    val memberships: List<Membership>,
+    val events: List<Event>,
+    val announcements: List<com.precon.mhsclubs.screens.announcements.Announcement>,
+    val rsvps: List<com.precon.mhsclubs.screens.rsvp.Rsvp>
+)
 
 /**
  * Main app content with authentication flow and navigation.
@@ -134,24 +148,85 @@ fun AppContent(
     var syncedAnnouncements by remember { mutableStateOf<List<com.precon.mhsclubs.screens.announcements.Announcement>?>(null) }
     var syncedRsvps by remember { mutableStateOf<List<com.precon.mhsclubs.screens.rsvp.Rsvp>>(emptyList()) }
     var attendanceMembers by remember { mutableStateOf<List<ClubMember>>(emptyList()) }
+    var syncedStudentAttendance by remember { mutableStateOf<List<Attendance>?>(null) }
+    var selectedClubMemberCount by remember { mutableStateOf<Int?>(null) }
+    var studentAttendanceError by remember { mutableStateOf<String?>(null) }
+    var studentAttendanceRefreshKey by remember { mutableStateOf(0) }
+    var clubLoadError by remember { mutableStateOf<String?>(null) }
+    var contentRefreshKey by remember { mutableStateOf(0) }
     var joinError by remember { mutableStateOf<String?>(null) }
     var isJoining by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val attendanceSaveMutex = remember { Mutex() }
+    val signedInFirebaseUid = (authState as? AuthState.SignedIn)?.user?.firebaseUid
 
-    LaunchedEffect(currentScreen, authState, clubContentApi) {
+    // Restores an existing browser Firebase session after a refresh. Native implementations
+    // either maintain their own listener or return their current state.
+    LaunchedEffect(authService) {
+        authService.refreshUser()
+    }
+
+    LaunchedEffect(signedInFirebaseUid, clubContentApi, contentRefreshKey) {
         val api = clubContentApi ?: return@LaunchedEffect
-        val token = authService.getIdToken() ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: run {
+            if (authState is AuthState.SignedIn) clubLoadError = "Couldn't authenticate to load clubs. Try again."
+            return@LaunchedEffect
+        }
         if (authState is AuthState.SignedIn) {
-            syncedClubs = runCatching { api.loadClubs(token) }.getOrNull()
-            syncedMemberships = runCatching { api.loadMemberships(token) }.getOrNull()
-            syncedEvents = runCatching { api.loadEvents(token) }.getOrNull()
-            syncedAnnouncements = runCatching { api.loadAnnouncements(token) }.getOrNull()
-            syncedRsvps = runCatching { api.loadRsvps(token) }.getOrDefault(emptyList())
-            selectedClubId?.takeIf { currentScreen == AppScreen.ClubDetail }?.let { clubId ->
-                val count = runCatching { api.loadMemberCount(token, clubId) }.getOrNull() ?: return@let
-                syncedClubs = syncedClubs?.map { if (it.id == clubId) it.copy(memberCount = count) else it }
+            runCatching {
+                ContentSnapshot(
+                    clubs = api.loadClubs(token),
+                    memberships = api.loadMemberships(token),
+                    events = api.loadEvents(token),
+                    announcements = api.loadAnnouncements(token),
+                    rsvps = api.loadRsvps(token)
+                )
+            }
+                .onSuccess {
+                    syncedClubs = it.clubs
+                    syncedMemberships = it.memberships
+                    syncedEvents = it.events
+                    syncedAnnouncements = it.announcements
+                    syncedRsvps = it.rsvps
+                    clubLoadError = null
+                }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    clubLoadError = "Couldn't load your club data. Check your connection and try again."
+                }
+        }
+    }
+
+    LaunchedEffect(currentScreen, selectedClubId, signedInFirebaseUid, clubContentApi, syncedMemberships) {
+        if (currentScreen != AppScreen.ClubDetail) return@LaunchedEffect
+        val api = clubContentApi ?: return@LaunchedEffect
+        val clubId = selectedClubId ?: return@LaunchedEffect
+        selectedClubMemberCount = null
+        val token = authService.getIdToken() ?: return@LaunchedEffect
+        runCatching { api.loadMemberCount(token, clubId) }.getOrNull()?.let { count ->
+            selectedClubMemberCount = count
+            syncedClubs = syncedClubs?.map { club ->
+                if (club.id == clubId) club.copy(memberCount = count) else club
             }
         }
+    }
+
+    LaunchedEffect(currentScreen, signedInFirebaseUid, clubContentApi, studentAttendanceRefreshKey) {
+        if (currentScreen != AppScreen.StudentAttendance) return@LaunchedEffect
+        val api = clubContentApi ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: run {
+            studentAttendanceError = "Couldn't authenticate to load attendance. Try again."
+            return@LaunchedEffect
+        }
+        runCatching { api.loadAttendance(token) }
+            .onSuccess {
+                syncedStudentAttendance = it
+                studentAttendanceError = null
+            }
+            .onFailure {
+                if (it is CancellationException) throw it
+                studentAttendanceError = "Couldn't load attendance. Check your connection and try again."
+            }
     }
     
     // Handle auth state changes
@@ -166,6 +241,19 @@ fun AppContent(
                 showEventDetail = false
                 showRsvp = false
                 showAttendance = false
+                selectedClubId = null
+                selectedEventId = null
+                syncedEvents = null
+                syncedClubs = null
+                syncedMemberships = null
+                syncedAnnouncements = null
+                syncedRsvps = emptyList()
+                attendanceMembers = emptyList()
+                syncedStudentAttendance = null
+                selectedClubMemberCount = null
+                studentAttendanceError = null
+                clubLoadError = null
+                joinError = null
             }
             else -> {
                 // Loading or error state - stay on current screen
@@ -198,6 +286,13 @@ fun AppContent(
     
     val navigateToAccount: () -> Unit = {
         currentScreen = AppScreen.Account
+    }
+
+    val navigateToStudentAttendance: () -> Unit = {
+        syncedStudentAttendance = null
+        studentAttendanceError = null
+        studentAttendanceRefreshKey++
+        currentScreen = AppScreen.StudentAttendance
     }
     
     val navigateToAdmin: () -> Unit = {
@@ -232,6 +327,7 @@ fun AppContent(
             AppScreen.Announcements -> currentScreen = AppScreen.ClubList
             AppScreen.AdminDashboard -> currentScreen = AppScreen.ClubList
             AppScreen.Account -> currentScreen = AppScreen.ClubList
+            AppScreen.StudentAttendance -> currentScreen = AppScreen.Account
             else -> currentScreen = AppScreen.Login
         }
         showJoinClub = false
@@ -241,9 +337,7 @@ fun AppContent(
     }
 
     val shouldHandleSystemBack = showJoinClub || showRsvp || showAttendance ||
-        currentScreen == AppScreen.ClubDetail ||
-        currentScreen == AppScreen.ClubDirectory ||
-        currentScreen == AppScreen.EventList ||
+        (currentScreen != AppScreen.Login && currentScreen != AppScreen.ClubList) ||
         (currentScreen == AppScreen.ClubList && authService.currentUser?.role == UserRole.Staff)
 
     PlatformBackHandler(enabled = shouldHandleSystemBack) {
@@ -269,7 +363,7 @@ fun AppContent(
 
     val activeClubIds = syncedMemberships.orEmpty().filter { it.status == MembershipStatus.Active }.map { it.clubId }.toSet()
     /** True until the first club request settles, so the list can show placeholders instead of an empty state. */
-    val isLoadingClubs = clubContentApi != null && syncedClubs == null
+    val isLoadingClubs = clubContentApi != null && syncedClubs == null && clubLoadError == null
     val allClubs = syncedClubs ?: if (clubContentApi == null) getSampleClubs() else emptyList()
     val myClubs = allClubs.filter { it.id in activeClubIds }
     val allEvents = ((syncedEvents ?: if (clubContentApi == null) getSampleEvents() else emptyList()) + recurringMeetings(myClubs)).distinctBy { it.id }
@@ -296,39 +390,72 @@ fun AppContent(
                 clubs = myClubs,
                 isLoading = isLoadingClubs,
                 onJoinClubClick = navigateToJoinClub,
-                onClubClick = { clubId ->
-                    nextMeetings[clubId]?.let { event ->
-                        selectedEventId = event.id
-                        showRsvp = true
-                    }
-                },
+                onClubClick = navigateToClubDetail,
                 memberClubIds = activeClubIds,
-                nextMeetings = nextMeetings
+                nextMeetings = nextMeetings,
+                errorMessage = clubLoadError,
+                onRetry = { contentRefreshKey++ }
             )
         }
         
         AppScreen.ClubDetail -> {
             selectedClubId?.let { clubId ->
+                val club = allClubs.firstOrNull { it.id == clubId } ?: getSampleClub(clubId)
                 ClubDetailScreen(
-                    club = allClubs.firstOrNull { it.id == clubId } ?: getSampleClub(clubId),
+                    club = club,
+                    memberCount = if (clubContentApi != null) selectedClubMemberCount else club.memberCount,
                     membership = syncedMemberships?.firstOrNull { it.clubId == clubId },
                     userRole = authService.currentUser?.role ?: UserRole.Student,
                     onBackClick = navigateBack,
                     onJoinClick = {
+                        if (isJoining) return@ClubDetailScreen
                         scope.launch {
-                            val token = authService.getIdToken() ?: return@launch
-                            val membership = runCatching { clubContentApi?.joinClub(token, clubId) ?: getSampleMembership(clubId) }.getOrNull() ?: return@launch
-                            syncedMemberships = syncedMemberships.orEmpty().filterNot { it.clubId == clubId } + membership
+                            isJoining = true
+                            joinError = null
+                            val token = authService.getIdToken()
+                            if (token == null) {
+                                joinError = "Couldn't authenticate to add this club. Please try again."
+                                isJoining = false
+                                return@launch
+                            }
+                            runCatching { clubContentApi?.joinClub(token, clubId) ?: getSampleMembership(clubId) }
+                                .onSuccess { membership ->
+                                    syncedMemberships = syncedMemberships.orEmpty().filterNot { it.clubId == clubId } + membership
+                                    contentRefreshKey++
+                                }
+                                .onFailure {
+                                    if (it is CancellationException) throw it
+                                    joinError = "Couldn't add this club. Please try again."
+                                }
+                            isJoining = false
                         }
                     },
                     onLeaveClick = {
                         val membership = syncedMemberships?.firstOrNull { it.clubId == clubId } ?: return@ClubDetailScreen
+                        if (isJoining) return@ClubDetailScreen
                         scope.launch {
+                            isJoining = true
+                            joinError = null
                             val token = authService.getIdToken()
-                            if (clubContentApi != null && token != null) clubContentApi.leaveClub(token, membership.id)
-                            syncedMemberships = syncedMemberships?.filterNot { it.id == membership.id }
+                            if (clubContentApi != null && token == null) {
+                                joinError = "Couldn't authenticate to remove this club. Please try again."
+                                isJoining = false
+                                return@launch
+                            }
+                            runCatching {
+                                if (clubContentApi != null) clubContentApi.leaveClub(token!!, membership.id)
+                            }.onSuccess {
+                                syncedMemberships = syncedMemberships?.filterNot { it.id == membership.id }
+                                contentRefreshKey++
+                            }.onFailure {
+                                if (it is CancellationException) throw it
+                                joinError = "Couldn't remove this club. Please try again."
+                            }
+                            isJoining = false
                         }
-                    }
+                    },
+                    isJoining = isJoining,
+                    joinError = joinError
                 )
             }
         }
@@ -370,20 +497,35 @@ fun AppContent(
                 memberType = if (allClubs.any { it.contactEmail.equals(authService.currentUser?.email, ignoreCase = true) }) "Adviser" else "Student",
                 notificationsEnabled = notificationsEnabled,
                 onNotificationsChange = onNotificationsChange,
+                onViewAttendance = navigateToStudentAttendance,
                 onSignedOut = { currentScreen = AppScreen.Login }
+            )
+        }
+
+        AppScreen.StudentAttendance -> {
+            StudentAttendanceScreen(
+                events = allEvents,
+                clubs = myClubs,
+                attendance = syncedStudentAttendance,
+                isLoading = clubContentApi != null && syncedStudentAttendance == null && studentAttendanceError == null,
+                errorMessage = studentAttendanceError,
+                onBackClick = navigateBack
             )
         }
 
         AppScreen.ClubDirectory -> {
             ClubListScreen(
                 clubs = allClubs,
+                isLoading = isLoadingClubs,
                 onJoinClubClick = {},
                 onClubClick = navigateToClubDetail,
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
-                title = "School Clubs",
+                title = "Add Clubs",
                 backLabel = "My Clubs",
-                onBackClick = navigateBack
+                onBackClick = navigateBack,
+                errorMessage = clubLoadError,
+                onRetry = { contentRefreshKey++ }
             )
         }
         
@@ -491,12 +633,20 @@ fun AppContent(
             members = attendanceMembers.map { AttendanceMember(it.userId, it.displayName, it.email, it.status ?: AttendanceStatus.Absent) },
             isTeacher = true,
             onMarkAttendance = { userId, status ->
-                attendanceMembers = attendanceMembers.map { if (it.userId == userId) it.copy(status = status) else it }
-            },
-            onSave = {
+                val updatedMembers = attendanceMembers.map { if (it.userId == userId) it.copy(status = status) else it }
+                attendanceMembers = updatedMembers
                 scope.launch {
-                    val token = authService.getIdToken() ?: return@launch
-                    runCatching { clubContentApi?.saveAttendance(token, event.clubId, event.id, attendanceMembers.map { AttendanceUpdate(it.userId, it.status ?: AttendanceStatus.Absent) }) }
+                    attendanceSaveMutex.withLock {
+                        val token = authService.getIdToken() ?: return@withLock
+                        runCatching {
+                            clubContentApi?.saveAttendance(
+                                token,
+                                event.clubId,
+                                event.id,
+                                updatedMembers.map { AttendanceUpdate(it.userId, it.status ?: AttendanceStatus.Absent) }
+                            )
+                        }
+                    }
                 }
             },
             onBackClick = { showAttendance = false }

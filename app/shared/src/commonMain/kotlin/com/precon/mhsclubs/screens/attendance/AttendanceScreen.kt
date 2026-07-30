@@ -33,7 +33,6 @@ fun AttendanceScreen(
     members: List<AttendanceMember> = emptyList(),
     isTeacher: Boolean = false,
     onMarkAttendance: (String, AttendanceStatus) -> Unit = { _, _ -> },
-    onSave: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     val checkedIn = members.count { it.status == AttendanceStatus.Present }
@@ -80,7 +79,7 @@ fun AttendanceScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(members, key = { it.userId }) { member ->
-                    AttendanceRow(member, isTeacher) { onMarkAttendance(member.userId, it); onSave() }
+                    AttendanceRow(member, isTeacher) { onMarkAttendance(member.userId, it) }
                 }
             }
         }
@@ -89,7 +88,21 @@ fun AttendanceScreen(
 
 @Composable
 fun AttendanceRow(member: AttendanceMember, isTeacher: Boolean, onMarkAttendance: (AttendanceStatus) -> Unit) {
-    val present = member.status == AttendanceStatus.Present
+    val label = when (member.status) {
+        AttendanceStatus.Present -> "Present"
+        AttendanceStatus.Late -> "Late"
+        AttendanceStatus.Absent -> "Absent"
+    }
+    val background = when (member.status) {
+        AttendanceStatus.Present -> MaterialTheme.colorScheme.primary
+        AttendanceStatus.Late -> MaterialTheme.colorScheme.tertiary
+        AttendanceStatus.Absent -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val contentColor = when (member.status) {
+        AttendanceStatus.Present -> MaterialTheme.colorScheme.onPrimary
+        AttendanceStatus.Late -> MaterialTheme.colorScheme.onTertiary
+        AttendanceStatus.Absent -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     FigmaCard(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FigmaMonogram(member.displayName, Modifier.size(44.dp))
@@ -109,12 +122,20 @@ fun AttendanceRow(member: AttendanceMember, isTeacher: Boolean, onMarkAttendance
                 )
             }
             FigmaPill(
-                text = if (present) "Present" else "Absent",
-                background = if (present) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = if (present) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                borderColor = if (present) null else MaterialTheme.colorScheme.outlineVariant,
+                text = label,
+                background = background,
+                contentColor = contentColor,
+                borderColor = if (member.status == AttendanceStatus.Absent) MaterialTheme.colorScheme.outlineVariant else null,
                 onClick = if (isTeacher) {
-                    { onMarkAttendance(if (present) AttendanceStatus.Absent else AttendanceStatus.Present) }
+                    {
+                        onMarkAttendance(
+                            when (member.status) {
+                                AttendanceStatus.Present -> AttendanceStatus.Late
+                                AttendanceStatus.Late -> AttendanceStatus.Absent
+                                AttendanceStatus.Absent -> AttendanceStatus.Present
+                            }
+                        )
+                    }
                 } else null
             )
         }

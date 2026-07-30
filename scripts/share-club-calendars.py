@@ -31,7 +31,6 @@ from google.oauth2 import service_account
 # Configuration
 # ---------------------------------------------------------------------------
 
-SERVICE_ACCOUNT_EMAIL = "mhs-clubs-calendar-reader@mhs-clubs.iam.gserviceaccount.com"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
 CALENDAR_API = "https://www.googleapis.com/calendar/v3"
 
@@ -101,35 +100,38 @@ def fetch_club_calendar_ids(noco_token: str) -> list[str]:
     """Return the non-empty `Calendar` values from every club record."""
     base = os.environ["NOCODB_BASE_URL"].rstrip("/")
     table = os.environ["NOCODB_CLUBS_TABLE"]
-    url = f"{base}/api/v2/tables/{table}/records?limit=100"
-
     headers = {"xc-token": noco_token, "Accept": "application/json"}
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = json.loads(resp.read().decode())
-
-    records = body.get("list") or body.get("data") or []
     calendar_ids = []
-    for rec in records:
-        cal_id = rec.get("Calendar") or rec.get("calendar")
-        if cal_id and cal_id.strip():
-            calendar_ids.append(cal_id.strip())
+    offset = 0
+    while True:
+        url = f"{base}/api/v2/tables/{table}/records?limit=100&offset={offset}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read().decode())
+        records = body.get("list") or body.get("data") or []
+        for rec in records:
+            cal_id = rec.get("Calendar") or rec.get("calendar")
+            if cal_id and cal_id.strip():
+                calendar_ids.append(cal_id.strip())
+        if len(records) < 100:
+            break
+        offset += 100
     return calendar_ids
 
 
-def share_calendar(calendar_id: str, token: str, dry_run: bool) -> None:
+def share_calendar(calendar_id: str, token: str, service_account_email: str, dry_run: bool) -> None:
     """Add (or confirm) the service-account reader ACL on one calendar."""
     acl_url = f"{CALENDAR_API}/calendars/{urllib.parse.quote(calendar_id)}/acl"
     acl_body = {
         "role": "reader",
         "scope": {
             "type": "user",
-            "value": SERVICE_ACCOUNT_EMAIL,
+            "value": service_account_email,
         },
     }
 
     if dry_run:
-        print(f"  [dry-run] would share {calendar_id} with {SERVICE_ACCOUNT_EMAIL} (reader)")
+        print(f"  [dry-run] would share {calendar_id} with {service_account_email} (reader)")
         return
 
     status, result = http_post(acl_url, token, acl_body)
@@ -149,14 +151,14 @@ def main() -> None:
     if missing:
         fail(f"Missing environment variables: {', '.join(missing)}")
 
-    print(f"Service account: {SERVICE_ACCOUNT_EMAIL}")
     print(f"Mode: {'DRY RUN' if dry_run else 'LIVE'}")
     print()
 
     # --- authenticate ---------------------------------------------------------
     creds = load_credentials()
     token = creds.token
-    print("Authenticated with service account.\n")
+    service_account_email = creds.service_account_email
+    print(f"Authenticated with service account {service_account_email}.\n")
 
     # --- fetch club calendars from NocoDB ------------------------------------
     noco_token = os.environ["NOCODB_API_TOKEN"]
@@ -168,7 +170,7 @@ def main() -> None:
 
     print(f"Found {len(calendar_ids)} club calendar(s) in NocoDB:\n")
     for cid in calendar_ids:
-        share_calendar(cid, token, dry_run)
+        share_calendar(cid, token, service_account_email, dry_run)
 
     print(f"\nDone. {len(calendar_ids)} calendar(s) processed.")
 

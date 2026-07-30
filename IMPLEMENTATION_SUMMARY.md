@@ -8,7 +8,7 @@ Last reviewed: 2026-07-24
 - The server uses NocoDB REST and a Docker image ([Dockerfile.server](Dockerfile.server)); PostgreSQL, SQLDelight, and a database container are not part of this architecture.
 - `.env` is loaded by the server. It is discovered by walking upward from the process working directory, so `:server:run` finds the repository-root `.env` even when Gradle starts in `server/`. Relative service-account paths resolve beside that `.env` file.
 - `WEB_ALLOWED_HOST` is validated as a hostname (with an optional leading `*.`) and supplied to Ktor CORS; localhost is always permitted for HTTP/HTTPS development. The prior hard-coded school domain is removed.
-- The Web app uses Firebase browser authentication and `JsClubContentApi` for authenticated `GET /api/my/events` and `GET /api/my/announcements` requests.
+- The Web app uses Firebase browser authentication and `JsClubContentApi` for authenticated club-directory, membership, event, announcement, RSVP, and attendance requests.
 - `jsBrowserDevelopmentRun` serves the processed Web resources from `app/webApp/build/processedResources/js/main`; a local request to `http://localhost:8081/` returned HTTP 200 with `index.html` and `firebase-auth.js` on 2026-07-24.
 
 ## Reported cloud state (not independently inspectable from this repo)
@@ -31,11 +31,11 @@ The session handoff reports that Firebase Google sign-in, Android and Web Fireba
 
 ## Known code gaps
 
-- Club browse/detail/join screens in `App.kt` still use sample clubs and memberships. `ClubContentApi` currently has no list/search/join contract, and the student-facing server routes do not expose a safe club directory endpoint. This is intentionally not represented as a human setup task.
-- Events and announcements are server-backed only when an API adapter is supplied; the remaining app data paths are sample/demo content.
+- Preview-only `App()` instances retain sample data when no API adapter is supplied. Production Web and Android entry points provide authenticated adapters.
+- Full end-to-end route and NocoDB-adapter tests still need an isolated NocoDB fixture; CI currently verifies server tests plus Web and Android compilation.
 
 ## Discrepancies corrected from earlier documentation
 
 - Earlier docs incorrectly listed Firebase, NocoDB, service-account creation, and `.env` values as entirely pending. The handoff reports them configured; cloud-side completion remains unverified from local source.
-- Earlier docs said all Compose content was sample data. Web and Android now have event/announcement API adapters, although club browsing remains sample data.
+- Earlier docs said all Compose content was sample data. Web and Android now use authenticated adapters for the club directory, memberships, events, announcements, RSVPs, and attendance.
 - Calendar sync previously wrote `updated_at` and API adapters did not read NocoDB's built-in `CreatedAt`/`UpdatedAt`; the code now relies on those built-in fields and falls back to an event's start time when a timestamp is absent.

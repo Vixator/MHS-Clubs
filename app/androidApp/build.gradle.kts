@@ -1,5 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val apiBaseUrl = providers.gradleProperty("mhsClubsApiBaseUrl")
+    .orElse("http://10.0.2.2:8080")
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
@@ -32,12 +35,17 @@ android {
     namespace = "com.precon.mhsclubs"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+    buildFeatures {
+        resValues = true
+    }
+
     defaultConfig {
         applicationId = "com.precon.mhsclubs"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        resValue("string", "mhs_clubs_api_base_url", apiBaseUrl.get())
     }
     packaging {
         resources {

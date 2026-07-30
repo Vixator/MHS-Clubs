@@ -12,3 +12,8 @@ local.properties
 .env
 .env.*
 *.env
+mhs-clubs-*.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+firebase-service-account.json
+calendar-reader-service-account.json

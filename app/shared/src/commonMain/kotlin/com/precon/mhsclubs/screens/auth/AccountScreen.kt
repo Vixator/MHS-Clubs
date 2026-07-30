@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -42,6 +44,7 @@ fun AccountScreen(
     memberType: String? = null,
     notificationsEnabled: Boolean = false,
     onNotificationsChange: (Boolean) -> Unit = {},
+    onViewAttendance: () -> Unit = {},
     onSignedOut: () -> Unit
 ) {
     val state by authService.authState.collectAsState(initial = AuthState.SignedOut)
@@ -52,6 +55,7 @@ fun AccountScreen(
         memberType,
         notificationsEnabled = notificationsEnabled,
         onNotificationsChange = onNotificationsChange,
+        onViewAttendance = onViewAttendance,
         onSignOut = { scope.launch { authService.signOut() } }
     )
 }
@@ -62,13 +66,14 @@ fun AccountContent(
     memberType: String? = null,
     notificationsEnabled: Boolean = false,
     onNotificationsChange: (Boolean) -> Unit = {},
+    onViewAttendance: () -> Unit = {},
     isSigningOut: Boolean = false,
     signOutError: String? = null,
     onSignOut: () -> Unit
 ) {
     FigmaScreen(Modifier.fillMaxSize()) {
         Spacer(Modifier.height(48.dp))
-        FigmaTitle("Account", compact = true)
+        FigmaTitle("Account")
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val avatar = user?.avatarUrl?.takeIf { it.isNotBlank() }
@@ -116,6 +121,25 @@ fun AccountContent(
                         uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     )
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        FigmaCard(Modifier.fillMaxWidth(), onClick = onViewAttendance) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Attendance", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "See every club event you're part of",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.CalendarToday,
+                    contentDescription = "View attendance",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }

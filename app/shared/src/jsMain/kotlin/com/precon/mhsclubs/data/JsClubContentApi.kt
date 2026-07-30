@@ -6,6 +6,7 @@ import com.precon.mhsclubs.models.Membership
 import com.precon.mhsclubs.models.MembershipRole
 import com.precon.mhsclubs.models.MembershipStatus
 import com.precon.mhsclubs.models.AttendanceStatus
+import com.precon.mhsclubs.models.Attendance
 import com.precon.mhsclubs.screens.announcements.Announcement
 import com.precon.mhsclubs.screens.rsvp.Rsvp
 import com.precon.mhsclubs.screens.rsvp.RsvpStatus
@@ -24,6 +25,7 @@ import io.ktor.http.isSuccess
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -121,6 +123,16 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         return data["memberCount"]?.toString()?.trim('"')?.toIntOrNull() ?: 0
     }
 
+    override suspend fun loadAttendance(firebaseIdToken: String): List<Attendance> =
+        records("/api/my/attendance", firebaseIdToken).mapNotNull { item -> runCatching {
+            Attendance(
+                id = item.id(), eventId = item.string("event_id", "eventId"), userId = item.string("firebase_uid", "user_id", "userId"),
+                status = AttendanceStatus.fromValue(item.string("status")),
+                recordedAt = item.nullableString("recorded_at", "recordedAt", "CreatedAt", "created_at")?.let(Instant::parse)
+                    ?: Instant.fromEpochMilliseconds(0)
+            )
+        }.getOrNull() }
+
     override suspend fun loadAttendanceRoster(firebaseIdToken: String, clubId: String, eventId: String): List<ClubMember> =
         records("/api/clubs/$clubId/attendance/$eventId", firebaseIdToken).mapNotNull { item -> runCatching {
             ClubMember(item.string("userId"), item.stringOrDefault("displayName", item.string("userId")), item.stringOrDefault("email", ""), item.nullableString("status")?.let(AttendanceStatus::fromValue))
@@ -142,28 +154,28 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         return json.parseToJsonElement(response.bodyAsText()).jsonObject
     }
 
-    private suspend fun records(path: String, token: String): List<JsonObject> = runCatching {
-        if (token.isBlank()) return emptyList()
+    private suspend fun records(path: String, token: String): List<JsonObject> {
+        check(token.isNotBlank()) { "Firebase authentication token is required" }
         val response = client.get("${baseUrl.trimEnd('/')}$path") {
             header(HttpHeaders.Authorization, "Bearer $token")
             accept(ContentType.Application.Json)
         }
-        if (!response.status.isSuccess()) return emptyList()
+        if (!response.status.isSuccess()) error("Server request failed with HTTP ${response.status}")
         val payload = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        payload["data"]?.jsonObject?.get("list")?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
-    }.getOrElse { emptyList() }
+        return payload["data"]?.jsonObject?.get("list")?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+    }
 
     private fun JsonObject.id() = string("Id", "id")
     private fun JsonObject.string(vararg names: String): String = nullableString(*names)
         ?: error("Missing required field ${names.first()}")
     private fun JsonObject.stringOrDefault(name: String, default: String): String = nullableString(name) ?: default
     private fun JsonObject.nullableString(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
-        this[name]?.toString()?.trim('"')?.takeIf { it.isNotBlank() }
+        this[name]?.takeUnless { it is JsonNull }?.toString()?.trim('"')?.takeIf { it.isNotBlank() }
     }
     private fun JsonObject.toMembershipOrNull(): Membership? = runCatching {
         Membership(
             id = id(), userId = string("firebase_uid", "userId"), clubId = string("club_id", "clubId"),
-            role = MembershipRole.fromValue(stringOrDefault("role", "member")),
+            role = MembershipRole.fromValue(nullableString("role") ?: "member"),
             status = MembershipStatus.fromValue(stringOrDefault("status", "active")),
             joinedAt = nullableString("joined_at", "joinedAt")?.let(Instant::parse), leaderGrantedAt = null, revokedAt = null
         )

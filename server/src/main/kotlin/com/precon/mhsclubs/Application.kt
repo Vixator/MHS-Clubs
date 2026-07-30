@@ -18,6 +18,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.net.URI
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -37,6 +38,7 @@ fun Application.module() {
 
     install(CORS) {
         allowHost("localhost", schemes = listOf("http", "https"))
+        allowHost("localhost:8081", schemes = listOf("http"))
         configuredWebHost()?.let { allowHost(it, schemes = listOf("https")) }
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
@@ -57,15 +59,19 @@ fun Application.module() {
         route("/api") {
             get("/clubs") {
                 call.requireIdentity(verifier) ?: return@get
-                call.respondNoco { nocoDb.listRecords("clubs") }
+                call.respondNoco { nocoDb.listActiveClubs() }
             }
             get("/my/memberships") {
                 val identity = call.requireIdentity(verifier) ?: return@get
-                call.respondNoco { nocoDb.listRecords("memberships", where = "(firebase_uid,eq,${identity.uid})") }
+                call.respondNoco { nocoDb.listAllRecords("memberships", where = "(firebase_uid,eq,${identity.uid})") }
             }
             get("/my/rsvps") {
                 val identity = call.requireIdentity(verifier) ?: return@get
-                call.respondNoco { nocoDb.listRecords("rsvps", where = "(firebase_uid,eq,${identity.uid})") }
+                call.respondNoco { nocoDb.listAllRecords("rsvps", where = "(firebase_uid,eq,${identity.uid})") }
+            }
+            get("/my/attendance") {
+                val identity = call.requireIdentity(verifier) ?: return@get
+                call.respondNoco { nocoDb.listAllRecords("attendance", where = "(user_id,eq,${identity.uid})") }
             }
             /** Returns only content for clubs in which the signed-in student is active. */
             get("/my/{resource}") {
@@ -74,6 +80,7 @@ fun Application.module() {
                 if (resource !in studentOwnedResources) return@get call.respondBadRequest("Unsupported student resource")
                 call.respondNoco {
                     val clubIds = nocoDb.activeClubIds(identity.uid)
+                    if (resource == "events") calendarSync.syncIfDue(clubIds)
                     nocoDb.recordsForClubs(resource, clubIds)
                 }
             }
@@ -89,15 +96,19 @@ fun Application.module() {
             post("/memberships/join") {
                 val identity = call.requireIdentity(verifier) ?: return@post
                 val clubId = call.extractRequiredId("clubId") ?: return@post
-                call.respondNoco(HttpStatusCode.Created) {
-                    nocoDb.createRecord("memberships", """{"firebase_uid":"${identity.uid}","club_id":"$clubId","status":"active"}""")
+                if (!nocoDb.clubIsActive(clubId)) return@post call.respondBadRequest("Unknown or archived club")
+                val result = nocoDb.joinMembership(identity.uid, clubId)
+                call.respondNoco(if (result.created) HttpStatusCode.Created else HttpStatusCode.OK) {
+                    result.record
                 }
             }
             put("/memberships/{membershipId}/leave") {
                 val identity = call.requireIdentity(verifier) ?: return@put
-                val membershipId = call.parameters["membershipId"].orEmpty()
-                if (!nocoDb.membershipBelongsTo(membershipId, identity.uid)) return@put call.respondForbidden()
-                call.respondNoco { nocoDb.updateRecord("memberships", membershipId, """{\"status\":\"revoked\"}""") }
+                val membershipId = call.requirePathIdentifier("membershipId") ?: return@put
+                call.respondNoco {
+                    val revoked = nocoDb.revokeMembershipsForClub(identity.uid, membershipId) ?: return@respondNoco null
+                    """{"revoked":$revoked}"""
+                }
             }
             post("/rsvps/respond") {
                 val identity = call.requireIdentity(verifier) ?: return@post
@@ -120,23 +131,23 @@ fun Application.module() {
             }
             get("/clubs/{clubId}/member-count") {
                 call.requireIdentity(verifier) ?: return@get
-                val clubId = call.parameters["clubId"].orEmpty()
+                val clubId = call.requirePathIdentifier("clubId") ?: return@get
                 val count = nocoDb.activeMemberCount(clubId)
                 call.respondText("""{"success":true,"data":{"memberCount":$count}}""", ContentType.Application.Json)
             }
             get("/clubs/{clubId}/attendance/{eventId}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
-                val clubId = call.parameters["clubId"].orEmpty()
-                val eventId = call.parameters["eventId"].orEmpty()
-                if (!nocoDb.canAdvise(identity, clubId) || !nocoDb.eventBelongsToClub(eventId, clubId)) return@get call.respondForbidden()
+                val clubId = call.requirePathIdentifier("clubId") ?: return@get
+                val eventId = call.requirePathIdentifier("eventId") ?: return@get
+                if (!verifier.isStaff(identity) || !nocoDb.canAdvise(identity, clubId) || !nocoDb.eventBelongsToClub(eventId, clubId)) return@get call.respondForbidden()
                 call.respondNoco { nocoDb.attendanceRoster(clubId, eventId) }
             }
             put("/clubs/{clubId}/attendance/{eventId}") {
                 val identity = call.requireIdentity(verifier) ?: return@put
-                val clubId = call.parameters["clubId"].orEmpty()
-                val eventId = call.parameters["eventId"].orEmpty()
-                if (!nocoDb.canAdvise(identity, clubId) || !nocoDb.eventBelongsToClub(eventId, clubId)) return@put call.respondForbidden()
-                val updates = parseAttendanceUpdates(call.receiveText()) ?: return@put call.respondBadRequest("records must contain userId and present or absent status")
+                val clubId = call.requirePathIdentifier("clubId") ?: return@put
+                val eventId = call.requirePathIdentifier("eventId") ?: return@put
+                if (!verifier.isStaff(identity) || !nocoDb.canAdvise(identity, clubId) || !nocoDb.eventBelongsToClub(eventId, clubId)) return@put call.respondForbidden()
+                val updates = parseAttendanceUpdates(call.receiveText()) ?: return@put call.respondBadRequest("records must contain userId and a present, absent, or late status")
                 if (!nocoDb.activeMemberIds(clubId).containsAll(updates.map { it.first }.toSet())) return@put call.respondForbidden()
                 call.respondNoco {
                     updates.forEach { (userId, status) -> nocoDb.upsertAttendance(clubId, eventId, userId, status) }
@@ -146,15 +157,16 @@ fun Application.module() {
             put("/memberships/{membershipId}/club-admin") {
                 val identity = call.requireIdentity(verifier) ?: return@put
                 if (!verifier.isStaff(identity)) return@put call.respondForbidden()
+                val membershipId = call.requirePathIdentifier("membershipId") ?: return@put
                 val enabled = extractBoolean(call.receiveText(), "enabled")
                     ?: return@put call.respondBadRequest("enabled must be true or false")
                 call.respondNoco {
-                    nocoDb.updateRecord("memberships", call.parameters["membershipId"].orEmpty(), """{"is_club_admin":$enabled}""")
+                    nocoDb.updateRecord("memberships", membershipId, """{"is_club_admin":$enabled}""")
                 }
             }
             post("/clubs/{clubId}/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@post
-                val clubId = call.parameters["clubId"].orEmpty()
+                val clubId = call.requirePathIdentifier("clubId") ?: return@post
                 val resource = call.parameters["resource"].orEmpty()
                 if (resource !in clubManagedResources) return@post call.respondBadRequest("Unsupported club-managed resource")
                 if (!call.canManageClub(verifier, nocoDb, identity, clubId)) return@post
@@ -163,7 +175,7 @@ fun Application.module() {
                     "memberships" -> {
                         val firebaseUid = extractIdentifier(body, "firebaseUid")
                             ?: return@post call.respondBadRequest("firebaseUid is required")
-                        """{"firebase_uid":"$firebaseUid","club_id":"$clubId","status":"active","is_club_admin":false}"""
+                        """{"firebase_uid":"$firebaseUid","club_id":"$clubId","status":"active","role":"member","is_club_admin":false}"""
                     }
                     else -> body.withClubId(clubId) ?: return@post call.respondBadRequest("Do not supply club_id; it is taken from the route")
                 }
@@ -171,41 +183,55 @@ fun Application.module() {
             }
             put("/clubs/{clubId}/{resource}/{id}") {
                 val identity = call.requireIdentity(verifier) ?: return@put
-                val clubId = call.parameters["clubId"].orEmpty()
+                val clubId = call.requirePathIdentifier("clubId") ?: return@put
                 val resource = call.parameters["resource"].orEmpty()
+                val id = call.requirePathIdentifier("id") ?: return@put
                 if (resource !in clubManagedResources) return@put call.respondBadRequest("Unsupported club-managed resource")
                 if (!call.canManageClub(verifier, nocoDb, identity, clubId)) return@put
-                val existing = nocoDb.recordById(resource, call.parameters["id"].orEmpty())
+                val existing = nocoDb.recordById(resource, id)
                     ?: return@put call.respondText("""{"success":false,"error":"Record not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
                 if (extractIdentifier(existing, "club_id") != clubId) return@put call.respondForbidden()
-                call.respondNoco { nocoDb.updateRecord(resource, call.parameters["id"].orEmpty(), call.receiveText()) }
+                val update = call.receiveText().withClubId(clubId)
+                    ?: return@put call.respondBadRequest("Do not supply club_id; it is taken from the route")
+                call.respondNoco { nocoDb.updateRecord(resource, id, update) }
             }
             get("/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
                 val resource = call.parameters["resource"].orEmpty()
                 if (!verifier.isStaff(identity)) return@get call.respondForbidden()
-                call.respondNoco { nocoDb.listRecords(resource) }
+                if (resource !in apiResources) return@get call.respondBadRequest("Unsupported API resource")
+                call.respondNoco { nocoDb.listAllRecords(resource) }
             }
             get("/{resource}/{id}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
                 val resource = call.parameters["resource"].orEmpty()
                 if (!verifier.isStaff(identity)) return@get call.respondForbidden()
-                call.respondNoco { nocoDb.recordById(resource, call.parameters["id"].orEmpty()) }
+                if (resource !in apiResources) return@get call.respondBadRequest("Unsupported API resource")
+                val id = call.requirePathIdentifier("id") ?: return@get
+                call.respondNoco { nocoDb.recordById(resource, id) }
             }
             post("/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@post
                 if (!verifier.isStaff(identity)) return@post call.respondForbidden()
-                call.respondNoco(HttpStatusCode.Created) { nocoDb.createRecord(call.parameters["resource"].orEmpty(), call.receiveText()) }
+                val resource = call.parameters["resource"].orEmpty()
+                if (resource !in apiResources) return@post call.respondBadRequest("Unsupported API resource")
+                call.respondNoco(HttpStatusCode.Created) { nocoDb.createRecord(resource, call.receiveText()) }
             }
             put("/{resource}/{id}") {
                 val identity = call.requireIdentity(verifier) ?: return@put
                 if (!verifier.isStaff(identity)) return@put call.respondForbidden()
-                call.respondNoco { nocoDb.updateRecord(call.parameters["resource"].orEmpty(), call.parameters["id"].orEmpty(), call.receiveText()) }
+                val resource = call.parameters["resource"].orEmpty()
+                if (resource !in apiResources) return@put call.respondBadRequest("Unsupported API resource")
+                val id = call.requirePathIdentifier("id") ?: return@put
+                call.respondNoco { nocoDb.updateRecord(resource, id, call.receiveText()) }
             }
             delete("/{resource}/{id}") {
                 val identity = call.requireIdentity(verifier) ?: return@delete
                 if (!verifier.isStaff(identity)) return@delete call.respondForbidden()
-                call.respondNoco { nocoDb.deleteRecord(call.parameters["resource"].orEmpty(), call.parameters["id"].orEmpty()) }
+                val resource = call.parameters["resource"].orEmpty()
+                if (resource !in apiResources) return@delete call.respondBadRequest("Unsupported API resource")
+                val id = call.requirePathIdentifier("id") ?: return@delete
+                call.respondNoco { nocoDb.deleteRecord(resource, id) }
             }
         }
 
@@ -217,8 +243,11 @@ fun Application.module() {
         post("/integrations/forms/announcements") {
             val secret = environment("FORM_INGEST_SECRET").orEmpty()
             val supplied = call.request.headers[HttpHeaders.Authorization]
-                ?.removePrefix("Bearer ")?.trim().orEmpty()
-            if (secret.isBlank() || supplied != secret) {
+                ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+                ?.substringAfter(' ')
+                ?.trim()
+                .orEmpty()
+            if (secret.isBlank() || !MessageDigest.isEqual(supplied.toByteArray(), secret.toByteArray())) {
                 return@post call.respondText("""{"success":false,"error":"Unauthorized form relay"}""", ContentType.Application.Json, HttpStatusCode.Unauthorized)
             }
             val payload = try { JsonParser.parseString(call.receiveText()).asJsonObject } catch (_: Exception) {
@@ -226,6 +255,10 @@ fun Application.module() {
             }
             val clubId = payload.string("club_id", "clubId")
                 ?: return@post call.respondBadRequest("club_id is required")
+            if (!clubId.isIdentifier()) return@post call.respondBadRequest("Invalid club_id")
+            if (!nocoDb.clubExists(clubId)) return@post call.respondBadRequest("Unknown club_id")
+            if (!clubId.isIdentifier()) return@post call.respondBadRequest("Invalid club_id")
+            if (!nocoDb.clubExists(clubId)) return@post call.respondBadRequest("Unknown club_id")
             val content = listOfNotNull(payload.string("message_body", "messageBody", "content"), payload.string("links"))
                 .joinToString("\n\n").trim()
             if (content.isBlank()) return@post call.respondBadRequest("message_body or links is required")
@@ -242,7 +275,9 @@ fun Application.module() {
 }
 
 private val studentOwnedResources = setOf("events", "announcements")
-private val clubManagedResources = setOf("memberships", "events", "announcements", "attendance")
+private val clubManagedResources = setOf("memberships", "events", "announcements")
+private val apiResources = setOf("clubs", "users", "memberships", "events", "rsvps", "attendance", "announcements")
+private val identifierPattern = Regex("[A-Za-z0-9_-]{1,128}")
 
 private fun configuredWebHost(): String? = environment("WEB_ALLOWED_HOST")
     ?.trim()
@@ -265,7 +300,9 @@ private suspend fun ApplicationCall.requireIdentity(verifier: FirebaseTokenVerif
         return null
     }
     return try {
-        verifier.verify(token)
+        verifier.verify(token).also { identity ->
+            check(identity.uid.isIdentifier()) { "Firebase token contains an invalid user ID" }
+        }
     } catch (_: Exception) {
         respondText("""{"success":false,"error":"Invalid, unverified, or unauthorized Firebase token"}""", ContentType.Application.Json, HttpStatusCode.Unauthorized)
         null
@@ -291,13 +328,22 @@ private suspend fun ApplicationCall.respondBadRequest(message: String) {
     respondText("""{"success":false,"error":"$message"}""", ContentType.Application.Json, HttpStatusCode.BadRequest)
 }
 
+private suspend fun ApplicationCall.requirePathIdentifier(name: String): String? {
+    val value = parameters[name].orEmpty()
+    if (!value.isIdentifier()) {
+        respondBadRequest("Invalid $name")
+        return null
+    }
+    return value
+}
+
 private fun ApplicationCall.canManageClub(
     verifier: FirebaseTokenVerifier,
     nocoDb: NocoDbClient,
     identity: UserIdentity,
     clubId: String
 ): Boolean {
-    if (!clubId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+    if (!clubId.isIdentifier()) {
         return false
     }
     if (verifier.isStaff(identity)) return true
@@ -317,37 +363,31 @@ private suspend fun ApplicationCall.extractRequiredId(field: String): String? {
 }
 
 private fun extractIdentifier(json: String, field: String): String? =
-    Regex("\\\"$field\\\"\\s*:\\s*\\\"([A-Za-z0-9_-]{1,128})\\\"")
-        .find(json)
-        ?.groupValues
-        ?.getOrNull(1)
+    runCatching { JsonParser.parseString(json).asJsonObject.get(field)?.asString }.getOrNull()
+        ?.takeIf(String::isIdentifier)
 
 private fun extractBoolean(json: String, field: String): Boolean? =
-    Regex("\\\"$field\\\"\\s*:\\s*(true|false)")
-        .find(json)
-        ?.groupValues
-        ?.getOrNull(1)
-        ?.toBooleanStrictOrNull()
+    runCatching { JsonParser.parseString(json).asJsonObject.get(field)?.asBoolean }.getOrNull()
 
-private fun parseAttendanceUpdates(body: String): List<Pair<String, String>>? = runCatching {
+internal fun parseAttendanceUpdates(body: String): List<Pair<String, String>>? = runCatching {
     val records = JsonParser.parseString(body).asJsonObject.getAsJsonArray("records") ?: return null
     records.map { entry ->
         val record = entry.asJsonObject
         val userId = record.get("userId")?.asString?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,128}")) }
             ?: error("Invalid userId")
         val status = record.get("status")?.asString?.lowercase() ?: error("Invalid status")
-        require(status in setOf("present", "absent")) { "Invalid status" }
+        require(status in setOf("present", "absent", "late")) { "Invalid status" }
         userId to status
     }
 }.getOrNull()
 
-private fun String.withClubId(clubId: String): String? {
-    val body = trim()
-    if (!body.startsWith("{") || !body.endsWith("}") || Regex("\\\"club(_id|Id)\\\"").containsMatchIn(body)) return null
-    return body.removeSuffix("}").trimEnd().let { prefix ->
-        if (prefix == "{") """{"club_id":"$clubId"}""" else "$prefix,\"club_id\":\"$clubId\"}"
-    }
+internal fun String.withClubId(clubId: String): String? {
+    val record = runCatching { JsonParser.parseString(this).asJsonObject }.getOrNull() ?: return null
+    if (record.has("club_id") || record.has("clubId")) return null
+    return record.apply { addProperty("club_id", clubId) }.toString()
 }
+
+internal fun String.isIdentifier(): Boolean = identifierPattern.matches(this)
 
 private fun JsonObject.string(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
     get(name)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }

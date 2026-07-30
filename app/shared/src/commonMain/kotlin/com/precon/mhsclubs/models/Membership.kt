@@ -33,10 +33,13 @@ sealed class MembershipRole(val value: String) {
     object StudentLeader : MembershipRole("student_leader")
 
     companion object {
-        private val BY_VALUE = listOf(Member, Advisor, StudentLeader).associateBy(MembershipRole::value)
-
         fun fromValue(value: String): MembershipRole =
-            BY_VALUE[value] ?: throw IllegalArgumentException("Unknown MembershipRole: $value")
+            when (value.lowercase()) {
+                "member" -> Member
+                "advisor" -> Advisor
+                "student_leader" -> StudentLeader
+                else -> throw IllegalArgumentException("Unknown MembershipRole: $value")
+            }
     }
 
     override fun toString(): String = value
@@ -53,10 +56,13 @@ sealed class MembershipStatus(val value: String) {
     object Revoked : MembershipStatus("revoked")
 
     companion object {
-        private val BY_VALUE = listOf(Pending, Active, Revoked).associateBy(MembershipStatus::value)
-
         fun fromValue(value: String): MembershipStatus =
-            BY_VALUE[value] ?: throw IllegalArgumentException("Unknown MembershipStatus: $value")
+            when (value.lowercase()) {
+                "pending" -> Pending
+                "active" -> Active
+                "revoked" -> Revoked
+                else -> throw IllegalArgumentException("Unknown MembershipStatus: $value")
+            }
     }
 
     override fun toString(): String = value

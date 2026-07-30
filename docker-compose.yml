@@ -5,8 +5,11 @@ services:
       dockerfile: Dockerfile.server
     env_file:
       - .env
+    environment:
+      FIREBASE_SERVICE_ACCOUNT: /run/secrets/firebase.json
+      GOOGLE_CALENDAR_SERVICE_ACCOUNT: /run/secrets/calendar.json
     ports:
       - "8080:8080"
     volumes:
-      - ./mhs-clubs-fa5d9b477aab.json:/app/mhs-clubs-fa5d9b477aab.json:ro
-      - ./mhs-clubs-bd9ce65312cc.json:/app/mhs-clubs-bd9ce65312cc.json:ro
+      - ${FIREBASE_SERVICE_ACCOUNT:?Set FIREBASE_SERVICE_ACCOUNT in .env}:/run/secrets/firebase.json:ro
+      - ${GOOGLE_CALENDAR_SERVICE_ACCOUNT:?Set GOOGLE_CALENDAR_SERVICE_ACCOUNT in .env}:/run/secrets/calendar.json:ro

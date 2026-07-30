@@ -14,6 +14,10 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Imports Google Calendar events into the server-owned NocoDB events table.
@@ -27,20 +31,27 @@ class GoogleCalendarSyncService(
         ?: environment("FIREBASE_SERVICE_ACCOUNT").orEmpty()
 ) {
     private val gson = com.google.gson.Gson()
+    private val lastSyncedAt = ConcurrentHashMap<String, Instant>()
 
     fun isConfigured(): Boolean = credentialsPath.isNotBlank() && resolveEnvironmentPath(credentialsPath).isFile
 
     /** Syncs the supplied clubs (or every club when [clubIds] is null). */
     fun sync(clubIds: Set<String>? = null): CalendarSyncResult {
         check(isConfigured()) { "Google Calendar is not configured (set GOOGLE_CALENDAR_SERVICE_ACCOUNT)" }
-        val clubs = records(nocoDb.listRecords("clubs"))
+        val clubs = records(nocoDb.listAllRecords("clubs"))
             .filter { clubIds == null || string(it, "Id", "id") in clubIds }
             .mapNotNull { club ->
                 val id = string(club, "Id", "id") ?: return@mapNotNull null
                 val calendarId = string(club, "Calendar", "calendar")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 ClubCalendar(id, calendarId)
             }
-        val existing = records(nocoDb.listRecords("events")).associateBy { string(it, "google_event_id") }
+        val existing = records(nocoDb.listAllRecords("events"))
+            .mapNotNull { event ->
+                val clubId = string(event, "club_id", "clubId") ?: return@mapNotNull null
+                val googleId = string(event, "google_event_id") ?: return@mapNotNull null
+                CalendarEventKey(clubId, googleId) to event
+            }
+            .toMap()
         var created = 0
         var updated = 0
         var ignored = 0
@@ -58,7 +69,7 @@ class GoogleCalendarSyncService(
                     addProperty("start_time", start)
                     if (end != null) addProperty("end_time", end)
                 }
-                val old = existing[googleId]
+                val old = existing[CalendarEventKey(club.clubId, googleId)]
                 if (old == null) {
                     nocoDb.createRecord("events", gson.toJson(record))
                     created++
@@ -72,8 +83,26 @@ class GoogleCalendarSyncService(
         return CalendarSyncResult(clubs.size, created, updated, ignored)
     }
 
+    /**
+     * Refreshes a student's club calendars when they load events, without repeatedly
+     * querying the same calendar while several screens are opened in quick succession.
+     * Existing NocoDB events remain available if Calendar is not configured or is down.
+     */
+    fun syncIfDue(clubIds: Set<String>, minimumInterval: Duration = Duration.ofMinutes(2)) {
+        if (clubIds.isEmpty() || !isConfigured()) return
+        val now = Instant.now()
+        val dueClubIds = clubIds.filterTo(mutableSetOf()) { clubId ->
+            lastSyncedAt[clubId]?.plus(minimumInterval)?.isBefore(now) != false
+        }
+        if (dueClubIds.isEmpty()) return
+        runCatching { sync(dueClubIds) }.onSuccess {
+            dueClubIds.forEach { clubId -> lastSyncedAt[clubId] = now }
+        }
+    }
+
     private fun googleEvents(calendarId: String): List<JsonObject> {
         val result = mutableListOf<JsonObject>()
+        val token = accessToken()
         var pageToken: String? = null
         do {
             val query = buildString {
@@ -82,7 +111,7 @@ class GoogleCalendarSyncService(
             }
             val response = http.send(
                 HttpRequest.newBuilder(URI.create("https://www.googleapis.com/calendar/v3/calendars/${encode(calendarId)}/events?$query"))
-                    .header("Authorization", "Bearer ${accessToken()}")
+                    .header("Authorization", "Bearer $token")
                     .timeout(Duration.ofSeconds(20))
                     .GET().build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -107,12 +136,22 @@ class GoogleCalendarSyncService(
         return array.mapNotNull { it.takeIf { value -> value.isJsonObject }?.asJsonObject }
     }
 
-    private fun eventTime(value: JsonObject?): String? = value?.let { string(it, "dateTime", "date") }
+    /** Converts Google all-day values into the ISO instants expected by mobile and web clients. */
+    private fun eventTime(value: JsonObject?): String? = value?.let {
+        string(it, "dateTime") ?: string(it, "date")?.let { date ->
+            runCatching { LocalDate.parse(date).atStartOfDay(schoolZone).toInstant().toString() }.getOrNull()
+        }
+    }
     private fun string(value: JsonObject, vararg names: String): String? = names.firstNotNullOfOrNull { name ->
         value.get(name)?.takeIf { !it.isJsonNull }?.asString
     }
     private fun encode(value: String) = URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
+
+    private companion object {
+        val schoolZone: ZoneId = ZoneId.of("America/Chicago")
+    }
 }
 
 data class CalendarSyncResult(val calendars: Int, val created: Int, val updated: Int, val ignored: Int)
 private data class ClubCalendar(val clubId: String, val calendarId: String)
+private data class CalendarEventKey(val clubId: String, val googleId: String)

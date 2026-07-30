@@ -20,10 +20,7 @@ class FirebaseTokenVerifier(
     }
 
     fun isStaff(identity: UserIdentity): Boolean =
-        identity.emailVerified && (
-            normalizedEmail(identity.email) in administratorEmails ||
-                normalizedEmail(identity.email).endsWith(staffDomain)
-            )
+        identity.emailVerified && normalizedEmail(identity.email).endsWith(staffDomain)
 
     fun checkScheme(identity: UserIdentity, scheme: AuthenticationScheme): Boolean = when (scheme) {
         AuthenticationScheme.None, AuthenticationScheme.AnyAuthenticated -> identity.emailVerified
@@ -45,8 +42,7 @@ class FirebaseTokenVerifier(
     }
 
     private fun isAllowedEmail(email: String) =
-        normalizedEmail(email) in administratorEmails ||
-            normalizedEmail(email).endsWith(studentDomain) ||
+        normalizedEmail(email).endsWith(studentDomain) ||
             normalizedEmail(email).endsWith(staffDomain)
 
     private val studentDomain get() = domainFromEnvironment("STUDENT_EMAIL_DOMAIN", "students.mcpasd.k12.wi.us")
@@ -57,5 +53,4 @@ class FirebaseTokenVerifier(
 
     private fun normalizedEmail(email: String) = email.trim().lowercase()
 
-    private val administratorEmails = setOf("precon3515@gmail.com")
 }

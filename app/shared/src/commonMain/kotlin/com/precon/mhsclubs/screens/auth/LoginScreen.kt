@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,40 +69,40 @@ fun LoginScreen(authService: AuthService, onSignedIn: (UserRole) -> Unit, onErro
 fun LoginContent(isLoading: Boolean, errorMessage: String? = null, onSignInClick: () -> Unit) {
     BoxWithConstraints(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         val horizontalPadding = if (maxWidth >= 402.dp) 56.dp else 28.dp
         Column(
-            modifier = Modifier.widthIn(max = 402.dp).fillMaxWidth().padding(horizontal = horizontalPadding),
+            modifier = Modifier.widthIn(max = 402.dp).fillMaxWidth().padding(top = 88.dp).padding(horizontal = horizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
                 painter = painterResource(Res.drawable.figma_sign_in_asset_2),
                 contentDescription = null,
-                modifier = Modifier.size(width = 148.dp, height = 142.dp)
+                modifier = Modifier.size(width = 190.dp, height = 183.dp)
             )
-            Spacer(Modifier.height(28.dp))
-            Text(
-                text = "MHS",
-                style = MaterialTheme.typography.displayLarge,
-                fontSize = 56.sp,
-                lineHeight = 56.sp,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-            Text(
-                text = "CLUBS",
-                style = MaterialTheme.typography.titleLarge,
-                letterSpacing = 8.sp,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "Find your people at Middleton High.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(22.dp))
+            Column(
+                modifier = Modifier.width(190.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = "MHS",
+                    style = MaterialTheme.typography.displayLarge,
+                    fontSize = 62.sp,
+                    lineHeight = 62.sp,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                Text(
+                    text = "CLUBS",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 23.sp,
+                    lineHeight = 25.sp,
+                    letterSpacing = 0.sp,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            Spacer(Modifier.height(38.dp))
             if (isLoading) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             } else {
@@ -133,7 +134,7 @@ fun LoginContent(isLoading: Boolean, errorMessage: String? = null, onSignInClick
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "An MCPASD school email is required.",
+                text = "A MCPASD School email is required",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

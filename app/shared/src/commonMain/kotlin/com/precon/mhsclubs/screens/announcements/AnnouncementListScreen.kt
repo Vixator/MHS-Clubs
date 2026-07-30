@@ -44,7 +44,7 @@ fun AnnouncementListScreen(
     val visible = announcements.filter { selectedClubId == null || selectedClubId == it.clubId }
     FigmaScreen(Modifier.fillMaxSize()) {
         Spacer(Modifier.height(48.dp))
-        FigmaTitle("Updates", compact = true)
+        FigmaTitle("Updates")
         Spacer(Modifier.height(12.dp))
         Box {
             FigmaClubFilter(
@@ -58,13 +58,13 @@ fun AnnouncementListScreen(
                 }
             }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
         if (visible.isEmpty()) {
             Text(
                 text = "No announcements yet",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(top = 40.dp)
+                modifier = Modifier.padding(top = 12.dp)
             )
             Spacer(Modifier.height(6.dp))
             Text(

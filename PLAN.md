@@ -15,11 +15,11 @@ Status: `[x]` verified in the repository, `[~]` implemented but needs cloud/devi
 ## Application integration
 
 - [x] Android and Web event/announcement adapters call authenticated `/api/my/events` and `/api/my/announcements`.
-- [ ] Add a server-backed club directory contract: list/search clubs, retrieve a detail, and join by code or ID while preserving authorization boundaries.
-- [ ] Extend `ClubContentApi` and `App.kt` state/UI to use that contract; remove sample club/membership data from browse/detail/join flows.
-- [ ] Replace remaining sample event-detail, attendance, and other content paths with authenticated APIs.
+- [x] Add a server-backed club directory contract: list/search clubs, retrieve a detail, and join by ID while preserving authorization boundaries.
+- [x] Extend `ClubContentApi` and `App.kt` state/UI to use that contract; remove sample club/membership data from browse/detail/join flows.
+- [x] Replace user-facing sample event-detail, attendance, and other content paths with authenticated APIs.
 - [~] Build and test native iOS Firebase configuration on macOS (owner action required; see [HUMAN_TASKS.md](HUMAN_TASKS.md)).
-- [ ] Add route, NocoDB-adapter, and client integration tests plus CI.
+- [~] Add route, NocoDB-adapter, and client integration tests; CI now runs the server tests and Web/Android compiles.
 
 ## Deployment and operations
 

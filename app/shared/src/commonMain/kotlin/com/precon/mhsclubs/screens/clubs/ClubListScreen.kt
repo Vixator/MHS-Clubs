@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.precon.mhsclubs.model.Club
 import com.precon.mhsclubs.models.Event
 import com.precon.mhsclubs.ui.FigmaBackLabel
+import com.precon.mhsclubs.ui.FigmaActionButton
 import com.precon.mhsclubs.ui.FigmaCard
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
@@ -43,7 +43,7 @@ import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-private const val DIRECTORY_TITLE = "School Clubs"
+private const val DIRECTORY_TITLE = "Add Clubs"
 
 @Composable
 fun ClubListScreen(
@@ -55,7 +55,9 @@ fun ClubListScreen(
     onClubClick: (String) -> Unit = {},
     title: String = "My Clubs",
     backLabel: String? = null,
-    onBackClick: (() -> Unit)? = null
+    onBackClick: (() -> Unit)? = null,
+    errorMessage: String? = null,
+    onRetry: (() -> Unit)? = null
 ) {
     val isDirectory = title == DIRECTORY_TITLE
     FigmaScreen(Modifier.fillMaxSize()) {
@@ -70,7 +72,7 @@ fun ClubListScreen(
             if (!isDirectory) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(RoundedCornerShape(100.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(100.dp))
@@ -97,13 +99,18 @@ fun ClubListScreen(
         Spacer(Modifier.height(20.dp))
         when {
             isLoading -> ClubListSkeleton()
+            errorMessage != null && onRetry != null -> ClubListLoadError(errorMessage, onRetry)
             clubs.isEmpty() -> EmptyClubs(isDirectory)
             isDirectory -> LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(clubs, key = { it.id }) { club ->
-                    DirectoryRow(club, club.id in memberClubIds) { onClubClick(club.id) }
+                    DirectoryRow(
+                        club = club,
+                        isMember = club.id in memberClubIds,
+                        onClick = { onClubClick(club.id) }
+                    )
                 }
             }
             else -> LazyColumn(
@@ -115,6 +122,26 @@ fun ClubListScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ClubListLoadError(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(16.dp))
+        FigmaActionButton(
+            text = "Try again",
+            onClick = onRetry
+        )
     }
 }
 
@@ -143,11 +170,11 @@ fun ClubCard(club: Club, isMember: Boolean = false, nextMeeting: Event? = null, 
                 }
             }
             if (isMember) {
-                Icon(
-                    Icons.Default.Star,
-                    contentDescription = "You are a member",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                FigmaPill(
+                    text = "Joined",
+                    background = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    borderColor = null
                 )
             }
         }
@@ -182,7 +209,11 @@ fun ClubCard(club: Club, isMember: Boolean = false, nextMeeting: Event? = null, 
 }
 
 @Composable
-private fun DirectoryRow(club: Club, isMember: Boolean, onClick: () -> Unit) {
+private fun DirectoryRow(
+    club: Club,
+    isMember: Boolean,
+    onClick: () -> Unit
+) {
     val shape = MaterialTheme.shapes.small
     Row(
         modifier = Modifier
@@ -217,13 +248,13 @@ private fun DirectoryRow(club: Club, isMember: Boolean, onClick: () -> Unit) {
                 }
         }
         if (isMember) {
-            Icon(
-                Icons.Default.Star,
-                contentDescription = "You are a member",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
+            FigmaPill(
+                text = "Joined",
+                background = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                borderColor = null
             )
-            Spacer(Modifier.size(10.dp))
+            Spacer(Modifier.size(8.dp))
         }
         Icon(
             Icons.Default.ChevronRight,

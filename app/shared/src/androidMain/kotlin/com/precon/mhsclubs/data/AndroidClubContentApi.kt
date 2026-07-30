@@ -6,6 +6,7 @@ import com.precon.mhsclubs.models.Membership
 import com.precon.mhsclubs.models.MembershipRole
 import com.precon.mhsclubs.models.MembershipStatus
 import com.precon.mhsclubs.models.AttendanceStatus
+import com.precon.mhsclubs.models.Attendance
 import com.precon.mhsclubs.screens.announcements.Announcement
 import com.precon.mhsclubs.screens.rsvp.Rsvp
 import com.precon.mhsclubs.screens.rsvp.RsvpStatus
@@ -110,6 +111,21 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
         data.optInt("memberCount", 0)
     }
 
+    override suspend fun loadAttendance(firebaseIdToken: String): List<Attendance> = withContext(Dispatchers.IO) {
+        records("/api/my/attendance", firebaseIdToken).mapNotNull { item ->
+            runCatching {
+                Attendance(
+                    id = item.id(),
+                    eventId = item.string("event_id", "eventId"),
+                    userId = item.string("firebase_uid", "user_id", "userId"),
+                    status = AttendanceStatus.fromValue(item.string("status")),
+                    recordedAt = item.nullableString("recorded_at", "recordedAt", "CreatedAt", "created_at")
+                        ?.let(Instant::parse) ?: Instant.fromEpochMilliseconds(0)
+                )
+            }.getOrNull()
+        }
+    }
+
     override suspend fun loadAttendanceRoster(firebaseIdToken: String, clubId: String, eventId: String): List<ClubMember> = withContext(Dispatchers.IO) {
         records("/api/clubs/$clubId/attendance/$eventId", firebaseIdToken).mapNotNull { item ->
             runCatching {
@@ -150,7 +166,10 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
             readTimeout = 30_000
         }
         body?.let { connection.outputStream.bufferedWriter().use { writer -> writer.write(it) } }
-        if (connection.responseCode !in 200..299) error("Server request failed with HTTP ${connection.responseCode}")
+        if (connection.responseCode !in 200..299) {
+            val response = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            error("Server request failed with HTTP ${connection.responseCode}: $response")
+        }
         return connection.inputStream.bufferedReader().use { it.readText() }
     }
 
@@ -168,7 +187,7 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
     private fun JSONObject.toMembershipOrNull(): Membership? = runCatching {
         Membership(
             id = id(), userId = string("firebase_uid", "userId"), clubId = string("club_id", "clubId"),
-            role = MembershipRole.fromValue(optString("role", "member")),
+            role = MembershipRole.fromValue(nullableString("role") ?: "member"),
             status = MembershipStatus.fromValue(optString("status", "active")),
             joinedAt = nullableString("joined_at", "joinedAt")?.let(Instant::parse),
             leaderGrantedAt = null, revokedAt = null

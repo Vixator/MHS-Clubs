@@ -15,7 +15,7 @@ This list intentionally excludes code work. Firebase, NocoDB, the local `.env`, 
 
 ## Platform work that requires the project owner
 
-- [ ] For a physical Android-device local test, select this computer's LAN API URL, allow TCP 8080 through Windows Firewall, and keep the phone and computer on the same Wi-Fi. (`10.0.2.2` is only for an emulator.)
+- [ ] For a physical Android-device local test, pass this computer's LAN API URL with `-PmhsClubsApiBaseUrl=http://192.168.x.x:8080`, allow TCP 8080 through Windows Firewall, and keep the phone and computer on the same Wi-Fi. (`10.0.2.2` is only for an emulator; release builds must use HTTPS.)
 
 ## Google Form announcement relay
 

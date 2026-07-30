@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,7 +88,11 @@ fun FigmaScreen(modifier: Modifier = Modifier, content: @Composable ColumnScope.
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
-            modifier = Modifier.widthIn(max = 402.dp).fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier
+                .widthIn(max = 402.dp)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp),
             content = content
         )
     }

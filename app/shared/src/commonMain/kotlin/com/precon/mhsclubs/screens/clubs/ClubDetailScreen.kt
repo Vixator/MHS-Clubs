@@ -32,11 +32,14 @@ import com.precon.mhsclubs.ui.FigmaTitle
 @Composable
 fun ClubDetailScreen(
     club: Club,
+    memberCount: Int? = club.memberCount,
     membership: Membership? = null,
     userRole: UserRole = UserRole.Student,
     onBackClick: () -> Unit = {},
     onJoinClick: () -> Unit = {},
-    onLeaveClick: () -> Unit = {}
+    onLeaveClick: () -> Unit = {},
+    isJoining: Boolean = false,
+    joinError: String? = null
 ) {
     val joined = membership?.status == MembershipStatus.Active
     FigmaScreen(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -44,11 +47,13 @@ fun ClubDetailScreen(
         FigmaBackLabel(if (joined) "My Clubs" else "Clubs List", onBackClick)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FigmaTitle("Club Details", compact = true, modifier = Modifier.weight(1f))
-            Text(
-                text = "${club.memberCount ?: 0} members",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+            memberCount?.let { count ->
+                Text(
+                    text = "$count ${if (count == 1) "member" else "members"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Spacer(Modifier.height(20.dp))
         FigmaCard(Modifier.fillMaxWidth()) {
@@ -80,13 +85,20 @@ fun ClubDetailScreen(
         }
         Spacer(Modifier.height(28.dp))
         FigmaActionButton(
-            text = if (joined) "Remove from My Clubs" else "Add to My Clubs",
+            text = if (isJoining) {
+                if (joined) "Removing from My Clubs…" else "Adding to My Clubs…"
+            } else if (joined) "Remove from My Clubs" else "Add to My Clubs",
             icon = if (joined) Icons.Default.Close else Icons.Default.Add,
             background = if (joined) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primary,
             contentColor = if (joined) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.fillMaxWidth(),
+            enabled = !isJoining,
             onClick = if (joined) onLeaveClick else onJoinClick
         )
+        joinError?.let { message ->
+            Spacer(Modifier.height(10.dp))
+            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
         Spacer(Modifier.height(32.dp))
     }
 }

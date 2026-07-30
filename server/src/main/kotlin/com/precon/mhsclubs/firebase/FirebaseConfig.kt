@@ -18,8 +18,8 @@ import java.io.FileInputStream
  * - firebase.serviceAccount system property
  * - Default: looks for firebase-service-account.json in the working directory
  *
- * In development mode (no service account file found), Firebase will not be
- * initialized and token verification will be skipped (development mode).
+ * If initialization fails, protected endpoints fail closed rather than accepting
+ * unverified development tokens.
  */
 object FirebaseConfig {
     private val log = LoggerFactory.getLogger(FirebaseConfig::class.java)
@@ -44,8 +44,8 @@ object FirebaseConfig {
      * Must be called before any Firebase operations (e.g., token verification).
      *
      * In production, this should be called during application startup.
-     * In development, if no service account is found, a warning is logged and
-     * Firebase operations will run in development mode (no verification).
+     * If no service account is found, a warning is logged and protected Firebase
+     * operations remain unavailable.
      *
      * @return true if Firebase was successfully initialized, false otherwise
      */
@@ -64,7 +64,7 @@ object FirebaseConfig {
                 "Set FIREBASE_SERVICE_ACCOUNT environment variable or " +
                 "firebase.serviceAccount system property to the path of your " +
                 "Firebase service account JSON file. " +
-                "Running in development mode (token verification skipped)."
+                "Protected requests will be rejected until Firebase is initialized."
             )
             return false
         }
@@ -87,7 +87,7 @@ object FirebaseConfig {
 
     /**
      * Returns the FirebaseAuth instance.
-     * In development mode (Firebase not initialized), this returns null.
+     * Returns null when Firebase has not initialized successfully.
      */
     fun getFirebaseAuth(): FirebaseAuth? {
         return if (FirebaseApp.getApps().isNotEmpty()) {

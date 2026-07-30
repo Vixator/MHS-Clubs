@@ -43,7 +43,6 @@ import com.precon.mhsclubs.ui.FigmaCard
 import com.precon.mhsclubs.ui.FigmaClubFilter
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
-import com.precon.mhsclubs.ui.FigmaSegmentedControl
 import com.precon.mhsclubs.ui.FigmaTitle
 import com.precon.mhsclubs.ui.textTertiary
 import kotlinx.datetime.DatePeriod
@@ -64,27 +63,18 @@ fun CalendarScreen(
     onEventClick: (String) -> Unit = {}
 ) {
     var month by remember { mutableStateOf(LocalDate(currentDate.year, currentDate.month, 1)) }
-    var scheduled by remember { mutableStateOf(true) }
     var selectedClubId by remember { mutableStateOf<String?>(null) }
     var filterExpanded by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
-    val visible = events.filter {
-        it.isScheduledMeeting == scheduled && (selectedClubId == null || selectedClubId == it.clubId)
-    }
+    val visible = events.filter { !it.isScheduledMeeting && (selectedClubId == null || selectedClubId == it.clubId) }
     val agenda = selectedDate?.let { date -> visible.filter { it.date() == date } }
         ?: visible.filter { it.startTime >= Clock.System.now() }.sortedBy { it.startTime }.take(3)
     val eventDays = remember(visible) { visible.map { it.date() }.toSet() }
 
     FigmaScreen(Modifier.fillMaxSize()) {
         Spacer(Modifier.height(48.dp))
-        FigmaTitle("Calendar", compact = true)
-        Spacer(Modifier.height(14.dp))
-        FigmaSegmentedControl(
-            "Meetings", "Events", scheduled,
-            { scheduled = true }, { scheduled = false },
-            Modifier.fillMaxWidth()
-        )
+        FigmaTitle("Calendar")
         Spacer(Modifier.height(16.dp))
         MonthPanel(
             month = month,
@@ -134,7 +124,7 @@ fun CalendarScreen(
             if (agenda.isEmpty()) {
                 item {
                     Text(
-                        text = "Nothing scheduled${selectedDate?.let { " on ${it.pretty()}" } ?: ""}.",
+                        text = "No upcoming events${selectedDate?.let { " on ${it.pretty()}" } ?: ""}.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
