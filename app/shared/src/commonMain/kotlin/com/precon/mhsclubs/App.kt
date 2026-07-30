@@ -154,6 +154,9 @@ fun AppContent(
     var studentAttendanceRefreshKey by remember { mutableStateOf(0) }
     var clubLoadError by remember { mutableStateOf<String?>(null) }
     var contentRefreshKey by remember { mutableStateOf(0) }
+    // A Compose effect can be recreated while its parent state settles.  Keep the
+    // network request idempotent so a re-composition cannot hammer the API.
+    var completedContentLoadKey by remember { mutableStateOf<String?>(null) }
     var joinError by remember { mutableStateOf<String?>(null) }
     var isJoining by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -168,33 +171,54 @@ fun AppContent(
 
     LaunchedEffect(signedInFirebaseUid, clubContentApi, contentRefreshKey) {
         val api = clubContentApi ?: return@LaunchedEffect
+        val requestKey = "$signedInFirebaseUid:$contentRefreshKey"
+        if (completedContentLoadKey == requestKey) return@LaunchedEffect
+        completedContentLoadKey = requestKey
         val token = authService.getIdToken() ?: run {
             if (authState is AuthState.SignedIn) clubLoadError = "Couldn't authenticate to load clubs. Try again."
             return@LaunchedEffect
         }
         if (authState is AuthState.SignedIn) {
+            // Club membership is the essential data for the Clubs screen.  Do not let an
+            // unrelated optional feed (events, announcements, or RSVPs) erase it.
             runCatching {
-                ContentSnapshot(
-                    clubs = api.loadClubs(token),
-                    memberships = api.loadMemberships(token),
-                    events = api.loadEvents(token),
-                    announcements = api.loadAnnouncements(token),
-                    rsvps = api.loadRsvps(token)
-                )
+                api.loadClubs(token) to api.loadMemberships(token)
             }
                 .onSuccess {
-                    syncedClubs = it.clubs
-                    syncedMemberships = it.memberships
-                    syncedEvents = it.events
-                    syncedAnnouncements = it.announcements
-                    syncedRsvps = it.rsvps
+                    syncedClubs = it.first
+                    syncedMemberships = it.second
                     clubLoadError = null
                 }
                 .onFailure {
                     if (it is CancellationException) throw it
                     clubLoadError = "Couldn't load your club data. Check your connection and try again."
                 }
+
         }
+    }
+
+    // Do not fan out to every NocoDB table while opening My Clubs.  Besides making the
+    // initial screen slower, that burst can be rate-limited by NocoDB.  Each feed is
+    // requested only when the student opens the screen that needs it.
+    LaunchedEffect(currentScreen, signedInFirebaseUid, clubContentApi, contentRefreshKey) {
+        if (currentScreen != AppScreen.Calendar) return@LaunchedEffect
+        val api = clubContentApi ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: return@LaunchedEffect
+        syncedEvents = runCatching { api.loadEvents(token) }.getOrElse { emptyList() }
+    }
+
+    LaunchedEffect(currentScreen, signedInFirebaseUid, clubContentApi, contentRefreshKey) {
+        if (currentScreen != AppScreen.Announcements) return@LaunchedEffect
+        val api = clubContentApi ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: return@LaunchedEffect
+        syncedAnnouncements = runCatching { api.loadAnnouncements(token) }.getOrElse { emptyList() }
+    }
+
+    LaunchedEffect(showRsvp, signedInFirebaseUid, clubContentApi, contentRefreshKey) {
+        if (!showRsvp) return@LaunchedEffect
+        val api = clubContentApi ?: return@LaunchedEffect
+        val token = authService.getIdToken() ?: return@LaunchedEffect
+        syncedRsvps = runCatching { api.loadRsvps(token) }.getOrElse { emptyList() }
     }
 
     LaunchedEffect(currentScreen, selectedClubId, signedInFirebaseUid, clubContentApi, syncedMemberships) {
@@ -253,6 +277,7 @@ fun AppContent(
                 selectedClubMemberCount = null
                 studentAttendanceError = null
                 clubLoadError = null
+                completedContentLoadKey = null
                 joinError = null
             }
             else -> {

@@ -295,11 +295,18 @@ class NocoDbClient(
     }
 
     private fun execute(request: HttpRequest): String {
-        val response = send(request)
-        if (response.statusCode() !in 200..299) {
-            throw NocoDbException("NocoDB request failed with HTTP ${response.statusCode()}")
+        // NocoDB may briefly throttle a burst of otherwise valid reads.  This server is
+        // its only client, so a small bounded backoff is safer than surfacing a transient
+        // 429 to every student's Clubs screen.
+        repeat(4) { attempt ->
+            val response = send(request)
+            if (response.statusCode() in 200..299) return response.body()
+            if (response.statusCode() != 429 || attempt == 3) {
+                throw NocoDbException("NocoDB request failed with HTTP ${response.statusCode()}")
+            }
+            Thread.sleep(500L * (1L shl attempt))
         }
-        return response.body()
+        error("Unreachable")
     }
 
     private fun send(request: HttpRequest): HttpResponse<String> = http.send(

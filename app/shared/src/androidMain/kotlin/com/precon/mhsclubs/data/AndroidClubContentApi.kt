@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -147,9 +148,14 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
 
     private fun records(path: String, token: String): List<JSONObject> {
         val response = request("GET", path, token)
-        val data = JSONObject(response).getJSONObject("data")
-        val list: JSONArray = data.optJSONArray("list") ?: JSONArray()
-        return List(list.length()) { index -> list.getJSONObject(index) }
+        return try {
+            val data = JSONObject(response).getJSONObject("data")
+            val list: JSONArray = data.optJSONArray("list") ?: JSONArray()
+            List(list.length()) { index -> list.getJSONObject(index) }
+        } catch (exception: Exception) {
+            Log.e(LOG_TAG, "Invalid response from $path: ${response.take(500)}", exception)
+            throw exception
+        }
     }
 
     private fun request(method: String, path: String, token: String, body: String? = null): String {
@@ -168,9 +174,15 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
         body?.let { connection.outputStream.bufferedWriter().use { writer -> writer.write(it) } }
         if (connection.responseCode !in 200..299) {
             val response = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            error("Server request failed with HTTP ${connection.responseCode}: $response")
+            val message = "Server request failed with HTTP ${connection.responseCode}: $response"
+            Log.e(LOG_TAG, "$method $path: $message")
+            error(message)
         }
         return connection.inputStream.bufferedReader().use { it.readText() }
+    }
+
+    private companion object {
+        const val LOG_TAG = "MhsClubsApi"
     }
 
     private fun JSONObject.id() = string("Id", "id")
