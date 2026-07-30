@@ -14,101 +14,138 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The shared visual foundation for the web and Android clients.
+ * The single source of truth for MHS Clubs colour, type, and shape.
  *
- * The palette follows the MHS Clubs dark graphite and maroon system so
- * every Compose surface remains visually consistent on either host platform.
+ * Screens must read every visual value from [MaterialTheme] so the whole app can be
+ * restyled from this file alone.
  */
-/** Colours sampled from the approved MHS Clubs mobile Figma frames. */
+
+// Layered near-black surfaces carry the UI; tan is reserved for accents.
+private val Ink = Color(0xFF0F0F0F)
+private val SurfaceCard = Color(0xFF171717)
+private val SurfaceRaised = Color(0xFF1F1F1F)
+private val SurfaceInput = Color(0xFF242424)
+private val Hairline = Color(0xFF2C2C2C)
+private val HairlineStrong = Color(0xFF3D3A36)
+
+/** Lightened from the brand tan so accent text clears WCAG AA on dark surfaces. */
+private val Tan = Color(0xFFC9A77F)
+private val TanPressed = Color(0xFFD8BC9A)
+private val Maroon = Color(0xFF991B1E)
+private val MaroonSurface = Color(0xFF2A1315)
+
+private val TextPrimary = Color(0xFFF4F3F1)
+private val TextSecondary = Color(0xFFA8A29B)
+private val Danger = Color(0xFFFF5A5F)
+private val DangerSurface = Color(0xFF3A1B1D)
+
 private val MhsClubsColorScheme: ColorScheme = darkColorScheme(
-    primary = Color(0xFF937962),
-    onPrimary = Color(0xFF191919),
-    primaryContainer = Color(0xFF937962),
-    onPrimaryContainer = Color(0xFF191919),
-    secondary = Color(0xFF937962),
-    onSecondary = Color(0xFF191919),
-    secondaryContainer = Color(0xFF937962),
-    onSecondaryContainer = Color(0xFF191919),
-    tertiary = Color(0xFF7A0001),
-    onTertiary = Color.White,
-    error = Color(0xFFFF424C),
-    onError = Color(0xFF191919),
-    errorContainer = Color(0xFF441D1E),
-    onErrorContainer = Color(0xFFFF424C),
-    background = Color(0xFF121212),
-    onBackground = Color(0xFFF2F4F3),
-    surface = Color(0xFF1E1E1E),
-    onSurface = Color(0xFFF2F4F3),
-    surfaceVariant = Color(0xFF252525),
-    onSurfaceVariant = Color(0xFFF2F4F3),
-    outline = Color(0xFF3A3A3A),
-    outlineVariant = Color(0xFF2A2A2A),
-    surfaceContainerHighest = Color(0xFF252525)
+    primary = Tan,
+    onPrimary = Ink,
+    primaryContainer = TanPressed,
+    onPrimaryContainer = Ink,
+    secondary = TextSecondary,
+    onSecondary = Ink,
+    secondaryContainer = SurfaceRaised,
+    onSecondaryContainer = TextPrimary,
+    tertiary = Maroon,
+    onTertiary = TextPrimary,
+    tertiaryContainer = MaroonSurface,
+    onTertiaryContainer = Tan,
+    error = Danger,
+    onError = Ink,
+    errorContainer = DangerSurface,
+    onErrorContainer = Danger,
+    background = Ink,
+    onBackground = TextPrimary,
+    surface = SurfaceCard,
+    onSurface = TextPrimary,
+    surfaceVariant = SurfaceInput,
+    onSurfaceVariant = TextSecondary,
+    surfaceContainer = SurfaceCard,
+    surfaceContainerHigh = SurfaceRaised,
+    surfaceContainerHighest = SurfaceInput,
+    outline = HairlineStrong,
+    outlineVariant = Hairline
 )
 
+/** Low-emphasis text for inactive dates and disabled metadata. */
+val ColorScheme.textTertiary: Color get() = Color(0xFF6F6A64)
+
+/**
+ * A seven-step scale. Sizes are 40/28/20/17/15/13/11 with negative tracking on the
+ * display sizes; colour is deliberately absent so styles work on any surface.
+ */
 private val MhsClubsTypography = Typography(
-    titleLarge = TextStyle(
+    displayLarge = TextStyle(
         fontWeight = FontWeight.ExtraBold,
         fontSize = 40.sp,
-        lineHeight = 40.sp,
-        color = FigmaText
+        lineHeight = 44.sp,
+        letterSpacing = (-1.2).sp
+    ),
+    headlineMedium = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.6).sp
+    ),
+    titleLarge = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.3).sp
     ),
     titleMedium = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 17.sp,
         lineHeight = 22.sp,
-        color = FigmaText
+        letterSpacing = (-0.1).sp
     ),
     titleSmall = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        color = FigmaText
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        lineHeight = 20.sp
     ),
     bodyLarge = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        color = FigmaText
+        fontSize = 15.sp,
+        lineHeight = 21.sp
     ),
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        color = FigmaText
+        fontSize = 13.sp,
+        lineHeight = 18.sp
     ),
     bodySmall = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        color = FigmaText
+        fontSize = 11.sp,
+        lineHeight = 15.sp
     ),
     labelLarge = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        color = FigmaText
+        fontSize = 15.sp,
+        lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        color = FigmaText
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.1.sp
     ),
     labelSmall = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        color = FigmaText
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.4.sp
     )
 )
 
 private val MhsClubsShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(24.dp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable

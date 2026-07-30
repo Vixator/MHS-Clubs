@@ -78,7 +78,7 @@ fun App(
     onNotificationsChange: (Boolean) -> Unit = {}
 ) {
     MhsClubsTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             AppContent(authServiceOverride, clubContentApi, notificationsEnabled, onNotificationsChange)
         }
     }
@@ -268,6 +268,8 @@ fun AppContent(
     )
 
     val activeClubIds = syncedMemberships.orEmpty().filter { it.status == MembershipStatus.Active }.map { it.clubId }.toSet()
+    /** True until the first club request settles, so the list can show placeholders instead of an empty state. */
+    val isLoadingClubs = clubContentApi != null && syncedClubs == null
     val allClubs = syncedClubs ?: if (clubContentApi == null) getSampleClubs() else emptyList()
     val myClubs = allClubs.filter { it.id in activeClubIds }
     val allEvents = ((syncedEvents ?: if (clubContentApi == null) getSampleEvents() else emptyList()) + recurringMeetings(myClubs)).distinctBy { it.id }
@@ -292,6 +294,7 @@ fun AppContent(
         AppScreen.ClubList -> {
             ClubListScreen(
                 clubs = myClubs,
+                isLoading = isLoadingClubs,
                 onJoinClubClick = navigateToJoinClub,
                 onClubClick = { clubId ->
                     nextMeetings[clubId]?.let { event ->
@@ -413,7 +416,7 @@ fun AppContent(
             onCalendar = navigateToCalendar,
             onUpdates = navigateToAnnouncements,
             onAccount = navigateToAccount,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 24.dp, vertical = 24.dp).fillMaxWidth().widthIn(max = 402.dp).height(44.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 24.dp, vertical = 24.dp).fillMaxWidth().widthIn(max = 402.dp)
         )
     }
     }
