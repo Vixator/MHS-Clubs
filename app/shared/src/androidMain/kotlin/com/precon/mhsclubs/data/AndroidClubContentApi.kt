@@ -33,7 +33,7 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
                 meetingLocation = item.nullableString("Meeting Location", "meeting_location", "meetingLocation"),
                 advisorName = item.nullableString("Advisor", "advisor", "advisor_name", "advisorName"),
                 contactEmail = item.nullableString("Contact", "contact", "advisor_email", "advisorEmail"),
-                calendarId = item.nullableString("calendar_id", "calendarId"),
+                calendarId = item.nullableString("calendar_id", "calendarId", "Calendar", "calendar"),
                 memberCount = item.nullableInt("member_count", "memberCount"),
                 code = item.optString("code", ""), isActive = item.optBoolean("is_active", true)
             )
@@ -201,6 +201,16 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
     }
 
     private fun JSONObject.toMembershipOrNull(): Membership? = runCatching {
+
+    override suspend fun syncCalendar(firebaseIdToken: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val response = request("POST", "/api/calendar/sync", firebaseIdToken)
+            return@withContext true
+        } catch (e: Exception) {
+            Log.e(LOG_TAG, "Calendar sync failed", e)
+            return@withContext false
+        }
+    }
         Membership(
             id = id(), userId = string("firebase_uid", "userId"), clubId = string("club_id", "clubId"),
             role = MembershipRole.fromValue(nullableString("role") ?: "member"),

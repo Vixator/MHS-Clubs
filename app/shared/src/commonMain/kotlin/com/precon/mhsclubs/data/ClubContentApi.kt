@@ -22,6 +22,7 @@ interface ClubContentApi {
     suspend fun loadAttendance(firebaseIdToken: String): List<Attendance>
     suspend fun loadAttendanceRoster(firebaseIdToken: String, clubId: String, eventId: String): List<ClubMember>
     suspend fun saveAttendance(firebaseIdToken: String, clubId: String, eventId: String, records: List<AttendanceUpdate>)
+    suspend fun syncCalendar(firebaseIdToken: String): Boolean
 }
 
 data class ClubMember(val userId: String, val displayName: String, val email: String, val status: AttendanceStatus?)
