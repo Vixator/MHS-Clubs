@@ -143,6 +143,11 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
         request("PUT", "/api/clubs/$clubId/attendance/$eventId", firebaseIdToken, body)
     }
 
+    override suspend fun syncCalendar(firebaseIdToken: String): Boolean = runCatching {
+        request("POST", "/api/calendar/sync", firebaseIdToken)
+        true
+    }.getOrDefault(false)
+
     private suspend fun request(method: String, path: String, token: String, body: String? = null): JsonObject {
         val url = "${baseUrl.trimEnd('/')}$path"
         val response = when (method) {

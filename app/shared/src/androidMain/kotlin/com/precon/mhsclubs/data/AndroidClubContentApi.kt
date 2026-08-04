@@ -200,17 +200,17 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
         opt(name)?.takeIf { it != JSONObject.NULL }?.toString()?.toIntOrNull()
     }
 
-    private fun JSONObject.toMembershipOrNull(): Membership? = runCatching {
-
     override suspend fun syncCalendar(firebaseIdToken: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val response = request("POST", "/api/calendar/sync", firebaseIdToken)
-            return@withContext true
+            request("POST", "/api/calendar/sync", firebaseIdToken)
+            true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "Calendar sync failed", e)
-            return@withContext false
+            false
         }
     }
+
+    private fun JSONObject.toMembershipOrNull(): Membership? = runCatching {
         Membership(
             id = id(), userId = string("firebase_uid", "userId"), clubId = string("club_id", "clubId"),
             role = MembershipRole.fromValue(nullableString("role") ?: "member"),
