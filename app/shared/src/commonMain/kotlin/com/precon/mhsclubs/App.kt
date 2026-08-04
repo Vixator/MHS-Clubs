@@ -55,7 +55,6 @@ import com.precon.mhsclubs.screens.auth.LoginScreen
 import com.precon.mhsclubs.screens.calendar.CalendarScreen
 import com.precon.mhsclubs.screens.clubs.ClubDetailScreen
 import com.precon.mhsclubs.screens.clubs.ClubListScreen
-import com.precon.mhsclubs.screens.clubs.JoinClubScreen
 import com.precon.mhsclubs.screens.events.EventListScreen
 import com.precon.mhsclubs.screens.rsvp.RsvpScreen
 import com.precon.mhsclubs.ui.MhsClubsTheme
@@ -97,7 +96,6 @@ sealed class AppScreen {
     object ClubList : AppScreen()
     object ClubDirectory : AppScreen()
     object ClubDetail : AppScreen()
-    object JoinClub : AppScreen()
     object EventList : AppScreen()
     object Calendar : AppScreen()
     object Account : AppScreen()
@@ -292,7 +290,7 @@ fun AppContent(
         selectedClubId = null
     }
     
-    val navigateToClubDetail: (String, fromDirectory: Boolean = false) -> Unit = { clubId, fromDirectory ->
+    val navigateToClubDetail: (String, Boolean) -> Unit = { clubId, fromDirectory ->
         selectedClubId = clubId
         cameFromDirectory = fromDirectory
         currentScreen = AppScreen.ClubDetail
@@ -417,7 +415,7 @@ fun AppContent(
             ClubListScreen(
                 clubs = myClubs,
                 isLoading = isLoadingClubs,
-                onClubClick = navigateToClubDetail,
+                onClubClick = { clubId -> navigateToClubDetail(clubId, false) },
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
                 errorMessage = clubLoadError,
@@ -491,15 +489,6 @@ fun AppContent(
             }
         }
         
-        AppScreen.JoinClub -> {
-            JoinClubScreen(
-                onBackClick = navigateBack,
-                onJoinClick = { code ->
-                    // Handle join club with code
-                    showJoinClub = false
-                }
-            )
-        }
         
         AppScreen.EventList -> {
             EventListScreen(
