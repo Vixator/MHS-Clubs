@@ -537,7 +537,7 @@ fun AppContent(
             ClubListScreen(
                 clubs = allClubs,
                 isLoading = isLoadingClubs,
-                onClubClick = { clubId -> navigateToClubDetail(clubId, fromDirectory = true) },
+                onClubClick = { clubId -> navigateToClubDetail(clubId, true) },
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
                 title = "Add Clubs",
