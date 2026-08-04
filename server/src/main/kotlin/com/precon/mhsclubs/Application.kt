@@ -102,11 +102,11 @@ fun Application.module() {
                     result.record
                 }
             }
-            put("/memberships/{membershipId}/leave") {
+            put("/memberships/leave") {
                 val identity = call.requireIdentity(verifier) ?: return@put
-                val membershipId = call.requirePathIdentifier("membershipId") ?: return@put
+                val clubId = call.extractRequiredId("clubId") ?: return@put
                 call.respondNoco {
-                    val revoked = nocoDb.revokeMembershipsForClub(identity.uid, membershipId) ?: return@respondNoco null
+                    val revoked = nocoDb.revokeMembershipsForClub(identity.uid, clubId)
                     """{"revoked":$revoked}"""
                 }
             }

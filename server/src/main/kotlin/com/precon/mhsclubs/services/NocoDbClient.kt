@@ -127,12 +127,8 @@ class NocoDbClient(
         listAllRecords("memberships", where = "(Id,eq,$membershipId)~and(firebase_uid,eq,$firebaseUid)")
     ).isNotEmpty()
 
-    /** Revokes every active duplicate membership for the selected club, not just one row. */
-    fun revokeMembershipsForClub(firebaseUid: String, membershipId: String): Int? {
-        val selected = records(
-            listAllRecords("memberships", where = "(Id,eq,$membershipId)~and(firebase_uid,eq,$firebaseUid)")
-        ).singleOrNull() ?: return null
-        val clubId = selected.string("club_id", "clubId") ?: return null
+    /** Revokes every active membership for one club, including legacy duplicate rows. */
+    fun revokeMembershipsForClub(firebaseUid: String, clubId: String): Int {
         val activeIds = records(
             listAllRecords("memberships", where = "(firebase_uid,eq,$firebaseUid)~and(club_id,eq,$clubId)~and(status,eq,active)")
         ).mapNotNull { it.string("Id", "id") }

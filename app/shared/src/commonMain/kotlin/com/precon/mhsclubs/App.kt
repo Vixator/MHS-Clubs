@@ -468,7 +468,7 @@ fun AppContent(
                                 return@launch
                             }
                             runCatching {
-                                if (clubContentApi != null) clubContentApi.leaveClub(token!!, membership.id)
+                                if (clubContentApi != null) clubContentApi.leaveClub(token!!, clubId)
                             }.onSuccess {
                                 syncedMemberships = syncedMemberships?.filterNot { it.id == membership.id }
                                 contentRefreshKey++

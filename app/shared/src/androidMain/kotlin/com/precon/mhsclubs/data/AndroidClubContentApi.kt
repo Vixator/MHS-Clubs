@@ -49,8 +49,10 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
             ?: error("Server returned an invalid membership")
     }
 
-    override suspend fun leaveClub(firebaseIdToken: String, membershipId: String) {
-        withContext(Dispatchers.IO) { request("PUT", "/api/memberships/$membershipId/leave", firebaseIdToken, "{}") }
+    override suspend fun leaveClub(firebaseIdToken: String, clubId: String) {
+        withContext(Dispatchers.IO) {
+            request("PUT", "/api/memberships/leave", firebaseIdToken, JSONObject().put("clubId", clubId).toString())
+        }
     }
 
     override suspend fun loadEvents(firebaseIdToken: String): List<Event> = withContext(Dispatchers.IO) { records("/api/my/events", firebaseIdToken) }.mapNotNull { item ->

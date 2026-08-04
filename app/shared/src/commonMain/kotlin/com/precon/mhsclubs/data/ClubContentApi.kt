@@ -13,7 +13,7 @@ interface ClubContentApi {
     suspend fun loadClubs(firebaseIdToken: String): List<Club>
     suspend fun loadMemberships(firebaseIdToken: String): List<Membership>
     suspend fun joinClub(firebaseIdToken: String, clubId: String): Membership
-    suspend fun leaveClub(firebaseIdToken: String, membershipId: String)
+    suspend fun leaveClub(firebaseIdToken: String, clubId: String)
     suspend fun loadEvents(firebaseIdToken: String): List<Event>
     suspend fun loadAnnouncements(firebaseIdToken: String): List<Announcement>
     suspend fun loadRsvps(firebaseIdToken: String): List<Rsvp>

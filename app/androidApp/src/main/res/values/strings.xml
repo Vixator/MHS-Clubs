@@ -13,6 +13,6 @@
         Update the phone URL if the computer running the server receives a new LAN IP.
     -->
     <string name="mhs_clubs_api_emulator_url">http://10.0.2.2:8080</string>
-    <string name="mhs_clubs_api_phone_url">http://192.168.86.41:8080</string>
+    <string name="mhs_clubs_api_phone_url">http://192.168.86.29:8080</string>
     <string name="mhs_clubs_api_base_url">@string/mhs_clubs_api_phone_url</string>
 </resources>

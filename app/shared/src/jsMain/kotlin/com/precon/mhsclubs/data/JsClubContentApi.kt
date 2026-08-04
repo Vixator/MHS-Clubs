@@ -62,11 +62,11 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
             ?: error("Server returned an invalid membership")
     }
 
-    override suspend fun leaveClub(firebaseIdToken: String, membershipId: String) {
-        val response = client.put("${baseUrl.trimEnd('/')}/api/memberships/$membershipId/leave") {
+    override suspend fun leaveClub(firebaseIdToken: String, clubId: String) {
+        val response = client.put("${baseUrl.trimEnd('/')}/api/memberships/leave") {
             header(HttpHeaders.Authorization, "Bearer $firebaseIdToken")
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            setBody("{}")
+            setBody("{\"clubId\":\"$clubId\"}")
         }
         if (!response.status.isSuccess()) error("Server request failed with HTTP ${response.status}")
     }
