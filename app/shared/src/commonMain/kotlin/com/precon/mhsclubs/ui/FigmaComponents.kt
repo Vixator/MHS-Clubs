@@ -91,6 +91,7 @@ fun FigmaScreen(modifier: Modifier = Modifier, content: @Composable ColumnScope.
             modifier = Modifier
                 .widthIn(max = 402.dp)
                 .fillMaxWidth()
+                .fillMaxHeight()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp),
             content = content

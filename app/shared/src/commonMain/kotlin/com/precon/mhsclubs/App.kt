@@ -136,9 +136,9 @@ fun AppContent(
     var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Login) }
     var selectedClubId by remember { mutableStateOf<String?>(null) }
     var selectedEventId by remember { mutableStateOf<String?>(null) }
+    var cameFromDirectory by remember { mutableStateOf(false) }
     
     // Track temporary state for screens
-    var showJoinClub by remember { mutableStateOf(false) }
     var showEventDetail by remember { mutableStateOf(false) }
     var showRsvp by remember { mutableStateOf(false) }
     var showAttendance by remember { mutableStateOf(false) }
@@ -261,12 +261,12 @@ fun AppContent(
             }
             is AuthState.SignedOut -> {
                 currentScreen = AppScreen.Login
-                showJoinClub = false
                 showEventDetail = false
                 showRsvp = false
                 showAttendance = false
                 selectedClubId = null
                 selectedEventId = null
+                cameFromDirectory = false
                 syncedEvents = null
                 syncedClubs = null
                 syncedMemberships = null
@@ -292,13 +292,10 @@ fun AppContent(
         selectedClubId = null
     }
     
-    val navigateToClubDetail: (String) -> Unit = { clubId ->
+    val navigateToClubDetail: (String, fromDirectory: Boolean = false) -> Unit = { clubId, fromDirectory ->
         selectedClubId = clubId
+        cameFromDirectory = fromDirectory
         currentScreen = AppScreen.ClubDetail
-    }
-    
-    val navigateToJoinClub: () -> Unit = {
-        currentScreen = AppScreen.ClubDirectory
     }
     
     val navigateToEventList: () -> Unit = {
@@ -345,7 +342,14 @@ fun AppContent(
     
     val navigateBack: () -> Unit = {
         when (currentScreen) {
-            AppScreen.ClubDetail -> currentScreen = AppScreen.ClubList
+            AppScreen.ClubDetail -> {
+                if (cameFromDirectory) {
+                    currentScreen = AppScreen.ClubDirectory
+                    cameFromDirectory = false
+                } else {
+                    currentScreen = AppScreen.ClubList
+                }
+            }
             AppScreen.ClubDirectory -> currentScreen = AppScreen.ClubList
             AppScreen.EventList -> currentScreen = AppScreen.ClubList
             AppScreen.Calendar -> currentScreen = AppScreen.ClubList
@@ -355,19 +359,18 @@ fun AppContent(
             AppScreen.StudentAttendance -> currentScreen = AppScreen.Account
             else -> currentScreen = AppScreen.Login
         }
-        showJoinClub = false
         showEventDetail = false
         showRsvp = false
         showAttendance = false
+        cameFromDirectory = false
     }
 
-    val shouldHandleSystemBack = showJoinClub || showRsvp || showAttendance ||
+    val shouldHandleSystemBack = showRsvp || showAttendance ||
         (currentScreen != AppScreen.Login && currentScreen != AppScreen.ClubList) ||
         (currentScreen == AppScreen.ClubList && authService.currentUser?.role == UserRole.Staff)
 
     PlatformBackHandler(enabled = shouldHandleSystemBack) {
         when {
-            showJoinClub -> showJoinClub = false
             showRsvp -> showRsvp = false
             showAttendance -> showAttendance = false
             currentScreen == AppScreen.ClubList -> currentScreen = AppScreen.AdminDashboard
@@ -414,7 +417,6 @@ fun AppContent(
             ClubListScreen(
                 clubs = myClubs,
                 isLoading = isLoadingClubs,
-                onJoinClubClick = navigateToJoinClub,
                 onClubClick = navigateToClubDetail,
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
@@ -447,6 +449,10 @@ fun AppContent(
                                 .onSuccess { membership ->
                                     syncedMemberships = syncedMemberships.orEmpty().filterNot { it.clubId == clubId } + membership
                                     contentRefreshKey++
+                                    if (cameFromDirectory) {
+                                        currentScreen = AppScreen.ClubDirectory
+                                        cameFromDirectory = false
+                                    }
                                 }
                                 .onFailure {
                                     if (it is CancellationException) throw it
@@ -542,8 +548,7 @@ fun AppContent(
             ClubListScreen(
                 clubs = allClubs,
                 isLoading = isLoadingClubs,
-                onJoinClubClick = {},
-                onClubClick = navigateToClubDetail,
+                onClubClick = { clubId -> navigateToClubDetail(clubId, fromDirectory = true) },
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
                 title = "Add Clubs",
@@ -589,38 +594,6 @@ fun AppContent(
     }
     
     // Modal screens
-    if (showJoinClub) {
-        JoinClubScreen(
-            onBackClick = { showJoinClub = false },
-            onJoinClick = { name ->
-                val club = (syncedClubs ?: getSampleClubs()).firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
-                if (club == null) {
-                    joinError = "Club name not found. Please check and try again."
-                } else {
-                    scope.launch {
-                        isJoining = true
-                        joinError = null
-                        val token = authService.getIdToken()
-                        val membership = runCatching {
-                            if (clubContentApi != null && token != null) clubContentApi.joinClub(token, club.id)
-                            else getSampleMembership(club.id)
-                        }.getOrElse {
-                            joinError = "Unable to join this club. Please try again."
-                            isJoining = false
-                            return@launch
-                        }
-                        syncedMemberships = (syncedMemberships ?: emptyList()).filterNot { it.clubId == club.id } + membership
-                        selectedClubId = club.id
-                        currentScreen = AppScreen.ClubDetail
-                        showJoinClub = false
-                        isJoining = false
-                    }
-                }
-            },
-            isLoading = isJoining,
-            errorMessage = joinError
-        )
-    }
     
     if (showRsvp && selectedEventId != null) {
         allEvents.firstOrNull { it.id == selectedEventId }?.let { event ->

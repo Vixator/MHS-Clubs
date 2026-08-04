@@ -19,6 +19,8 @@ data class Event(
     val endTime: Instant?,
     val createdAt: Instant,
     val updatedAt: Instant,
+    /** Google Calendar ID for this event, linked from the club's calendar */
+    val calendarId: String? = null,
     /** True when this is a locally derived recurring club meeting rather than an events-table row. */
     val isScheduledMeeting: Boolean = false,
 )

@@ -58,7 +58,7 @@ fun ClubDetailScreen(
         Spacer(Modifier.height(20.dp))
         FigmaCard(Modifier.fillMaxWidth()) {
             Text(club.name, style = MaterialTheme.typography.titleLarge)
-            club.category.takeIf { it.isNotBlank() }?.let {
+            club.category.takeIf { it.isNotBlank() && it.lowercase() != "general" }?.let {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     it,

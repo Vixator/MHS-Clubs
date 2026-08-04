@@ -33,6 +33,7 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
                 meetingLocation = item.nullableString("Meeting Location", "meeting_location", "meetingLocation"),
                 advisorName = item.nullableString("Advisor", "advisor", "advisor_name", "advisorName"),
                 contactEmail = item.nullableString("Contact", "contact", "advisor_email", "advisorEmail"),
+                calendarId = item.nullableString("calendar_id", "calendarId"),
                 memberCount = item.nullableInt("member_count", "memberCount"),
                 code = item.optString("code", ""), isActive = item.optBoolean("is_active", true)
             )
@@ -69,7 +70,8 @@ class AndroidClubContentApi(private val baseUrl: String) : ClubContentApi {
                     ?: item.nullableString("updated_at", "updatedAt", "UpdatedAt")?.let(Instant::parse)
                     ?: Instant.parse(item.string("start_time", "startTime")),
                 updatedAt = item.nullableString("updated_at", "updatedAt", "UpdatedAt")?.let(Instant::parse)
-                    ?: Instant.parse(item.string("start_time", "startTime"))
+                    ?: Instant.parse(item.string("start_time", "startTime")),
+                calendarId = item.nullableString("calendar_id", "calendarId")
             )
         }.getOrNull()
     }

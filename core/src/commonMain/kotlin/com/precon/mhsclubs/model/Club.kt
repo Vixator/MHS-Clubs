@@ -25,6 +25,8 @@ data class Club(
     val advisorName: String? = null,
     /** Adviser email from the clubs table's Contact field. */
     val contactEmail: String? = null,
+    /** Google Calendar ID for this club's events */
+    val calendarId: String? = null,
     /** Computed from active membership records by the authenticated API. */
     val memberCount: Int? = null,
     val code: String,

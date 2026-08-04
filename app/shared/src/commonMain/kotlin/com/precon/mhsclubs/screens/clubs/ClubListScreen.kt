@@ -49,7 +49,6 @@ private const val DIRECTORY_TITLE = "Add Clubs"
 fun ClubListScreen(
     clubs: List<Club> = emptyList(),
     isLoading: Boolean = false,
-    onJoinClubClick: () -> Unit = {},
     memberClubIds: Set<String> = emptySet(),
     nextMeetings: Map<String, Event> = emptyMap(),
     onClubClick: (String) -> Unit = {},
@@ -69,24 +68,6 @@ fun ClubListScreen(
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FigmaTitle(title, compact = isDirectory, modifier = Modifier.weight(1f))
-            if (!isDirectory) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(100.dp))
-                        .clickable(onClick = onJoinClubClick),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Browse school clubs",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
         }
         if (clubs.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
@@ -160,7 +141,7 @@ fun ClubCard(club: Club, isMember: Boolean = false, nextMeeting: Event? = null, 
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                club.category.takeIf { it.isNotBlank() }?.let { category ->
+                club.category.takeIf { it.isNotBlank() && it.lowercase() != "general" }?.let { category ->
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = category,

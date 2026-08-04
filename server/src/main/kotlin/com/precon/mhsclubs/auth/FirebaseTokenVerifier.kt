@@ -25,6 +25,7 @@ class FirebaseTokenVerifier(
     fun checkScheme(identity: UserIdentity, scheme: AuthenticationScheme): Boolean = when (scheme) {
         AuthenticationScheme.None, AuthenticationScheme.AnyAuthenticated -> identity.emailVerified
         AuthenticationScheme.StaffOnly -> isStaff(identity)
+        AuthenticationScheme.AdminOnly -> identity.isAdmin
     }
 
     private fun toIdentity(token: FirebaseToken): UserIdentity {
@@ -33,11 +34,16 @@ class FirebaseTokenVerifier(
         if (!token.isEmailVerified || !isAllowedEmail(email)) {
             throw SecurityException("This verified school email is required to use MHS Clubs")
         }
+        
+        // Hardcode admin status for precon3515@gmail.com
+        val isAdmin = email == "precon3515@gmail.com"
+        
         return UserIdentity(
             uid = token.uid,
             email = email,
             displayName = token.name,
-            emailVerified = true
+            emailVerified = true,
+            isAdmin = isAdmin
         )
     }
 

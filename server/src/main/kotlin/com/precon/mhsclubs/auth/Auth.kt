@@ -18,6 +18,8 @@ data class UserIdentity(
     val displayName: String? = null,
     /** Email verified flag from the ID token */
     val emailVerified: Boolean = false,
+    /** Admin status - hardcoded for precon3515@gmail.com */
+    val isAdmin: Boolean = false,
 ) {
     /**
      * Returns true if the user's email has been verified via Firebase.
@@ -33,5 +35,6 @@ data class UserIdentity(
 enum class AuthenticationScheme {
     None,
     AnyAuthenticated,
-    StaffOnly
+    StaffOnly,
+    AdminOnly
 }
