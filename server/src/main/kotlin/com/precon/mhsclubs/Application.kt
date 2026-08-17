@@ -103,6 +103,12 @@ fun Application.module() {
                 if (extractIdentifier(existing, "club_id") != clubId) return@put call.respondForbidden()
                 call.respondNoco { nocoDb.updateRecord(resource, call.parameters["id"].orEmpty(), call.receiveText()) }
             }
+            get("/my/events") {
+                val identity = call.requireIdentity(verifier) ?: return@get
+                val clubIds = nocoDb.memberClubIds(identity.uid)
+                val events = nocoDb.eventsForClubs(clubIds)
+                call.respondText("""{"success":true,"data":$events}""", ContentType.Application.Json)
+            }
             get("/{resource}") {
                 val identity = call.requireIdentity(verifier) ?: return@get
                 val resource = call.parameters["resource"].orEmpty()

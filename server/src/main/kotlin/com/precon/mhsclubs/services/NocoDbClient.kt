@@ -12,9 +12,12 @@ import java.time.Duration
 class NocoDbClient(
     private val baseUrl: String = System.getenv("NOCODB_BASE_URL").orEmpty(),
     private val apiToken: String = System.getenv("NOCODB_API_TOKEN").orEmpty(),
-    private val http: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
+    private val transport: (java.net.http.HttpRequest) -> java.net.http.HttpResponse<String> =
+        { request -> HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
+            .send(request, java.net.http.HttpResponse.BodyHandlers.ofString()) },
+    private val tableNames: Map<String, String> = emptyMap()
 ) {
-    private val tables = mapOf(
+    private val tableVariables = mapOf(
         "clubs" to "NOCODB_CLUBS_TABLE",
         "users" to "NOCODB_USERS_TABLE",
         "memberships" to "NOCODB_MEMBERSHIPS_TABLE",
@@ -62,10 +65,37 @@ class NocoDbClient(
         return Regex("\\\"is_club_admin\\\"\\s*:\\s*true").containsMatchIn(response)
     }
 
+    /**
+     * Returns the club IDs of every membership for [firebaseUid].
+     *
+     * Used to scope the events a student may see to the clubs they belong to,
+     * so joining a club surfaces its events and leaving/removal drops them.
+     */
+    fun memberClubIds(firebaseUid: String): List<String> {
+        val where = "where=(firebase_uid,eq,$firebaseUid)&limit=100"
+        val response = execute(request(recordsUri(tableFor("memberships"), where)).GET().build())
+        return clubIdPattern.findAll(response).map { it.groupValues[1] }.distinct().toList()
+    }
+
+    /**
+     * Returns every event record for the supplied club IDs as a single NocoDB
+     * list payload. Events are filtered by `club_id`, so a deleted event or a
+     * club the user has left never appears.
+     */
+    fun eventsForClubs(clubIds: List<String>): String {
+        if (clubIds.isEmpty()) return """{"list":[]}"""
+        val clause = clubIds.joinToString(",") { "'$it'" }
+        val where = "where=(club_id,in,$clause)&limit=100"
+        return execute(request(recordsUri(tableFor("events"), where)).GET().build())
+    }
+
+    private val clubIdPattern = Regex("\\\"club_id\\\"\\s*:\\s*\\\"([A-Za-z0-9_-]{1,128})\\\"")
+
     private fun tableFor(resource: String): String {
         check(isConfigured()) { "NocoDB is not configured" }
-        val variable = tables[resource] ?: throw NocoDbException("Unknown API resource '$resource'")
-        return System.getenv(variable)?.takeIf { it.isNotBlank() }
+        val variable = tableVariables[resource] ?: throw NocoDbException("Unknown API resource '$resource'")
+        return tableNames[resource]?.takeIf { it.isNotBlank() }
+            ?: System.getenv(variable)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("NocoDB table '$resource' is not configured ($variable)")
     }
 
@@ -77,10 +107,7 @@ class NocoDbClient(
         return response.body()
     }
 
-    private fun send(request: HttpRequest): HttpResponse<String> = http.send(
-        request,
-        HttpResponse.BodyHandlers.ofString()
-    )
+    private fun send(request: HttpRequest): HttpResponse<String> = transport(request)
 
     private fun request(uri: URI): HttpRequest.Builder = HttpRequest.newBuilder(uri)
         .header("xc-token", apiToken)

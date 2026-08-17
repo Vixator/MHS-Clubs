@@ -20,6 +20,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import com.precon.mhsclubs.api.ClubsApi
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -100,6 +103,17 @@ fun AppContent(authServiceOverride: AuthService? = null) {
     var showEventDetail by remember { mutableStateOf(false) }
     var showRsvp by remember { mutableStateOf(false) }
     var showAttendance by remember { mutableStateOf(false) }
+    // Live event data. Events are fetched from the server's membership-scoped
+    // endpoint so that deletes propagate and joining a club surfaces its events.
+    val scope = rememberCoroutineScope()
+    val clubsApi = remember(authService) { ClubsApi(tokenProvider = { authService.getIdToken() }) }
+    var events by remember { mutableStateOf<List<Event>>(emptyList()) }
+
+    val refreshEvents: () -> Unit = {
+        scope.launch {
+            events = clubsApi.loadMyEvents()
+        }
+    }
     
     // Handle auth state changes
     LaunchedEffect(authState) {
@@ -112,6 +126,7 @@ fun AppContent(authServiceOverride: AuthService? = null) {
                     UserRole.Student -> AppScreen.ClubList
                     null -> AppScreen.Login
                 }
+                refreshEvents()
             }
             is AuthState.SignedOut -> {
                 currentScreen = AppScreen.Login
@@ -119,6 +134,7 @@ fun AppContent(authServiceOverride: AuthService? = null) {
                 showEventDetail = false
                 showRsvp = false
                 showAttendance = false
+                events = emptyList()
             }
             else -> {
                 // Loading or error state - stay on current screen
@@ -218,7 +234,13 @@ fun AppContent(authServiceOverride: AuthService? = null) {
                     membership = getSampleMembership(clubId),
                     userRole = authService.currentUser?.role ?: UserRole.Student,
                     onBackClick = navigateBack,
-                    onJoinClick = navigateToJoinClub,
+                    onJoinClick = {
+                        // Join this club on the server, then refresh events so the
+                        // club's existing/upcoming events appear on the calendar.
+                        scope.launch {
+                            if (clubsApi.joinClub(clubId)) refreshEvents()
+                        }
+                    },
                     onLeaveClick = { /* Handle leave club */ }
                 )
             }
@@ -235,8 +257,10 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         }
         
         AppScreen.EventList -> {
+            // Re-fetch on entry so event deletions made elsewhere are reflected.
+            LaunchedEffect(Unit) { refreshEvents() }
             EventListScreen(
-                events = getSampleEvents(),
+                events = events,
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
@@ -245,8 +269,10 @@ fun AppContent(authServiceOverride: AuthService? = null) {
         }
         
         AppScreen.Calendar -> {
+            // Re-fetch on entry so event deletions made elsewhere are reflected.
+            LaunchedEffect(Unit) { refreshEvents() }
             CalendarScreen(
-                events = getSampleEvents(),
+                events = events,
                 onEventClick = { eventId ->
                     selectedEventId = eventId
                     showRsvp = true
@@ -297,7 +323,8 @@ fun AppContent(authServiceOverride: AuthService? = null) {
     
     if (showRsvp && selectedEventId != null) {
         RsvpScreen(
-            event = getSampleEvent(selectedEventId!!),
+            event = events.firstOrNull { it.id == selectedEventId }
+                ?: getSampleEvent(selectedEventId!!),
             onRsvp = { status ->
                 // Handle RSVP
                 showRsvp = false
@@ -307,7 +334,8 @@ fun AppContent(authServiceOverride: AuthService? = null) {
     
     if (showAttendance && selectedEventId != null) {
         AttendanceScreen(
-            eventTitle = getSampleEvent(selectedEventId!!).title,
+            eventTitle = events.firstOrNull { it.id == selectedEventId }?.title
+                ?: getSampleEvent(selectedEventId!!).title,
             members = getSampleAttendanceMembers(),
             isTeacher = authService.currentUser?.role == UserRole.Staff,
             onMarkAttendance = { userId, status ->
