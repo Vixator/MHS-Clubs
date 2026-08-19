@@ -25,6 +25,7 @@ import com.precon.mhsclubs.ui.FigmaMonogram
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
 import com.precon.mhsclubs.ui.FigmaTitle
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 
 @Composable
 fun AttendanceScreen(
@@ -67,10 +68,9 @@ fun AttendanceScreen(
         Text("Roster", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
         if (members.isEmpty()) {
-            Text(
-                text = "No active members in this club yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            FigmaStatusPanel(
+                title = "No active members",
+                message = "There are no members to mark for this event yet.",
                 modifier = Modifier.padding(top = 8.dp)
             )
         } else {

@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.edit
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +28,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         authService = AndroidAuthService(this)
+        
+        // Register Google Sign-In launcher
+        val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lifecycleScope.launch {
+                authService.handleSignInResult(result.resultCode, result.data)
+            }
+        }
+        authService.googleSignInLauncher = googleSignInLauncher
+
         val clubContentApi = AndroidClubContentApi(getString(R.string.mhs_clubs_api_base_url))
 
         setContent {
@@ -35,40 +45,35 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(
                     preferences.getBoolean(
                         "notifications_enabled",
-                        android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
-                            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                        (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) ||
+                            (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED),
                     )
                 )
             }
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
+                ActivityResultContracts.RequestPermission(),
             ) { granted ->
                 notificationsEnabled = granted
-                preferences.edit().putBoolean("notifications_enabled", granted).apply()
+                preferences.edit { putBoolean("notifications_enabled", granted) }
             }
             App(
                 authService,
                 clubContentApi,
                 notificationsEnabled = notificationsEnabled,
                 onNotificationsChange = { enabled ->
-                    if (enabled && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    if (enabled && (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) &&
+                        (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                     ) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         notificationsEnabled = enabled
-                        preferences.edit().putBoolean("notifications_enabled", enabled).apply()
+                        preferences.edit { putBoolean("notifications_enabled", enabled) }
                     }
-                }
+                },
             )
         }
     }
 
-    @Deprecated("Deprecated in Android; retained for the legacy Google Sign-In activity result API")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        lifecycleScope.launch { authService.handleSignInResult(requestCode, resultCode, data) }
-    }
 }
 
 @Preview

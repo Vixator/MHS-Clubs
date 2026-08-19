@@ -2,6 +2,8 @@ package com.precon.mhsclubs.auth
 
 import android.content.Context
 import android.util.Log
+import androidx.activity.result.ActivityResultLauncher
+import android.content.Intent
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -34,6 +36,12 @@ class AndroidAuthService(private val context: Context) : AuthService {
     override val authState: Flow<AuthState> = _authState.asStateFlow()
     
     private var googleSignInClient: GoogleSignInClient? = null
+    
+    /**
+     * Launcher for the Google Sign-In activity result.
+     * Must be set by the Activity before calling signInWithGoogle.
+     */
+    var googleSignInLauncher: ActivityResultLauncher<Intent>? = null
     
     // Scope for auth state listeners
     private val authScope = CoroutineScope(Dispatchers.Main)
@@ -79,7 +87,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
     /**
      * Updates the auth state based on the current Firebase user.
      */
-    private suspend fun updateAuthState(firebaseAuth: FirebaseAuth) {
+    private fun updateAuthState(firebaseAuth: FirebaseAuth) {
         val firebaseUser = firebaseAuth.currentUser
         
         if (firebaseUser != null) {
@@ -88,7 +96,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
                     firebaseUid = firebaseUser.uid,
                     email = firebaseUser.email ?: "",
                     displayName = firebaseUser.displayName ?: "",
-                    avatarUrl = firebaseUser.photoUrl?.toString()
+                    avatarUrl = firebaseUser.photoUrl?.toString(),
                 )
                 _authState.value = AuthState.SignedIn(user)
             } catch (e: IllegalArgumentException) {
@@ -113,9 +121,9 @@ class AndroidAuthService(private val context: Context) : AuthService {
                     firebaseUid = firebaseUser.uid,
                     email = firebaseUser.email ?: "",
                     displayName = firebaseUser.displayName ?: "",
-                    avatarUrl = firebaseUser.photoUrl?.toString()
+                    avatarUrl = firebaseUser.photoUrl?.toString(),
                 )
-            } catch (e: IllegalArgumentException) {
+            } catch (_: IllegalArgumentException) {
                 null
             }
         }
@@ -130,20 +138,38 @@ class AndroidAuthService(private val context: Context) : AuthService {
      * @return Result containing the signed-in user or an error
      */
     override suspend fun signInWithGoogle(): Result<User> {
-        val activity = context as? android.app.Activity
-            ?: return Result.failure(IllegalStateException("Android sign-in requires an Activity context"))
         _authState.value = AuthState.Loading
+        
+        googleSignInLauncher?.let { launcher ->
+            launchGoogleSignIn(launcher)
+            return Result.failure(SignInPendingException())
+        }
+
+        val activity = (context as? android.app.Activity)
+            ?: return Result.failure(IllegalStateException("Android sign-in requires an Activity context or a registered launcher"))
+        
+        @Suppress("DEPRECATION")
         launchGoogleSignIn(activity, REQUEST_CODE)
         return Result.failure(SignInPendingException())
     }
     
     /**
-     * Launches the Google Sign-In flow from an Activity.
-     * This is the recommended way to sign in on Android.
-     *
-     * @param activity The activity to launch the sign-in flow from
-     * @param requestCode The request code to use for the activity result
+     * Launches the Google Sign-In flow using an ActivityResultLauncher.
+     * This is the modern way to handle activity results in Android.
      */
+    fun launchGoogleSignIn(launcher: ActivityResultLauncher<Intent>) {
+        googleSignInClient?.signOut()?.addOnCompleteListener {
+            googleSignInClient?.signInIntent?.let { intent ->
+                launcher.launch(intent)
+            }
+        }
+    }
+
+    /**
+     * Launches the Google Sign-In flow from an Activity.
+     * @deprecated Use the version with ActivityResultLauncher instead.
+     */
+    @Deprecated("Use launchGoogleSignIn(launcher: ActivityResultLauncher<Intent>)")
     fun launchGoogleSignIn(activity: android.app.Activity, requestCode: Int) {
         googleSignInClient?.signOut()?.addOnCompleteListener {
             val signInIntent = googleSignInClient?.signInIntent
@@ -151,6 +177,18 @@ class AndroidAuthService(private val context: Context) : AuthService {
         }
     }
     
+    /**
+     * Handles the result of the Google Sign-In activity.
+     *
+     * @param resultCode The result code from the activity
+     * @param data The intent data from the activity result
+     * @return Result containing the signed-in user or an error
+     */
+    suspend fun handleSignInResult(
+        resultCode: Int,
+        data: Intent?
+    ): Result<User> = handleSignInResult(REQUEST_CODE, resultCode, data)
+
     /**
      * Handles the result of the Google Sign-In activity.
      *
@@ -162,7 +200,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
     suspend fun handleSignInResult(
         requestCode: Int,
         resultCode: Int,
-        data: android.content.Intent?
+        data: Intent?
     ): Result<User> {
         return try {
             if (requestCode != REQUEST_CODE) {
@@ -222,7 +260,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
                     firebaseUid = firebaseUser.uid,
                     email = firebaseUser.email ?: "",
                     displayName = firebaseUser.displayName ?: "",
-                    avatarUrl = firebaseUser.photoUrl?.toString()
+                    avatarUrl = firebaseUser.photoUrl?.toString(),
                 )
                 Result.success(user)
             } else {
@@ -236,7 +274,7 @@ class AndroidAuthService(private val context: Context) : AuthService {
     override suspend fun getIdToken(): String? {
         return try {
             auth.currentUser?.getIdToken(false)?.await()?.token
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

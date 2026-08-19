@@ -1,0 +1,5 @@
+- [x] Update `AndroidAuthService.kt` to support Activity Result API
+- [x] Add `androidx.core:core-ktx` to `androidApp` dependencies
+- [x] Update `MainActivity.kt` to use Activity Result API and fix lint warnings
+- [ ] Implement `fuzzyMatch` in `ClubSearch.kt` to fix `ClubSearchTest.kt`
+- [ ] Verify build and fix any remaining issues

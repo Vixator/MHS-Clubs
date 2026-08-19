@@ -92,9 +92,10 @@ fun RsvpScreen(
         Spacer(Modifier.height(12.dp))
         FigmaSegmentedControl(
             "Going", "Not going", going,
-            { if (!past) onRsvp(RsvpStatus.Going) },
-            { if (!past) onRsvp(RsvpStatus.NotGoing) },
-            Modifier.fillMaxWidth()
+            { onRsvp(RsvpStatus.Going) },
+            { onRsvp(RsvpStatus.NotGoing) },
+            Modifier.fillMaxWidth(),
+            enabled = !past
         )
         if (showAttendance) {
             Spacer(Modifier.height(24.dp))

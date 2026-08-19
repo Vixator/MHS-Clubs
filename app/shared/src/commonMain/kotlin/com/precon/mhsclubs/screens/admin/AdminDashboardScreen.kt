@@ -51,7 +51,8 @@ fun AdminDashboardScreen(
             actionLabel = "Open event schedule",
             onClick = onManageEvents
         )
-        Spacer(Modifier.height(24.dp))
+        // The dashboard is a primary destination, so reserve room above the floating navigation.
+        Spacer(Modifier.height(112.dp))
     }
 }
 

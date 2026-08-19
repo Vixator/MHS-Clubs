@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -71,7 +73,7 @@ fun AccountContent(
     signOutError: String? = null,
     onSignOut: () -> Unit
 ) {
-    FigmaScreen(Modifier.fillMaxSize()) {
+    FigmaScreen(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(48.dp))
         FigmaTitle("Account")
         Spacer(Modifier.height(24.dp))
@@ -100,8 +102,11 @@ fun AccountContent(
             }
         }
         Spacer(Modifier.height(28.dp))
-        FigmaCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        FigmaCard(Modifier.fillMaxWidth().height(80.dp)) {
+            Row(
+                Modifier.fillMaxWidth().weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text("Notifications", style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -124,9 +129,12 @@ fun AccountContent(
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
-        FigmaCard(Modifier.fillMaxWidth(), onClick = onViewAttendance) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.height(12.dp))
+        FigmaCard(Modifier.fillMaxWidth().height(80.dp), onClick = onViewAttendance) {
+            Row(
+                Modifier.fillMaxWidth().weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text("Attendance", style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -160,5 +168,7 @@ fun AccountContent(
                 color = MaterialTheme.colorScheme.error
             )
         }
+        // The account destination sits behind the floating app navigation; this keeps its last action reachable.
+        Spacer(Modifier.height(112.dp))
     }
 }

@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.server
+    image: mhsclubs-server:latest
     env_file:
       - .env
     environment:

@@ -15,6 +15,7 @@ kotlin {
 dependencies {
     implementation(projects.app.shared)
 
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.firebaseAuth)
     implementation(libs.playServicesAuth)

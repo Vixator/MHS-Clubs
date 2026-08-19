@@ -2,6 +2,7 @@ package com.precon.mhsclubs.screens.events
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +26,7 @@ import com.precon.mhsclubs.models.Event
 import com.precon.mhsclubs.ui.FigmaCard
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -53,22 +56,17 @@ fun EventListScreen(
         }
         Spacer(Modifier.height(20.dp))
         if (events.isEmpty()) {
-            Text(
-                text = "No events yet",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(top = 40.dp)
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "Club meetings and events will appear here once they are scheduled.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            FigmaStatusPanel(
+                title = "No events yet",
+                message = "Club meetings and events will appear here once they are scheduled.",
+                icon = Icons.Default.CalendarToday,
+                modifier = Modifier.padding(top = 24.dp)
             )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 32.dp)
             ) {
                 items(events, key = { it.id }) { event ->
                     EventCard(event = event, onClick = { onEventClick(event.id) })

@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,25 +20,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.precon.mhsclubs.model.Club
 import com.precon.mhsclubs.models.Event
 import com.precon.mhsclubs.ui.FigmaBackLabel
-import com.precon.mhsclubs.ui.FigmaActionButton
 import com.precon.mhsclubs.ui.FigmaCard
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 import com.precon.mhsclubs.ui.FigmaTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -56,7 +57,9 @@ fun ClubListScreen(
     backLabel: String? = null,
     onBackClick: (() -> Unit)? = null,
     errorMessage: String? = null,
-    onRetry: (() -> Unit)? = null
+    onRetry: (() -> Unit)? = null,
+    // UI-only callback keeps the restored add affordance decoupled from application navigation.
+    onAddClub: (() -> Unit)? = null
 ) {
     val isDirectory = title == DIRECTORY_TITLE
     FigmaScreen(Modifier.fillMaxSize()) {
@@ -68,6 +71,15 @@ fun ClubListScreen(
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FigmaTitle(title, compact = isDirectory, modifier = Modifier.weight(1f))
+            if (!isDirectory && onAddClub != null) {
+                IconButton(onClick = onAddClub) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add clubs",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
         if (clubs.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
@@ -84,7 +96,8 @@ fun ClubListScreen(
             clubs.isEmpty() -> EmptyClubs(isDirectory)
             isDirectory -> LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp)
             ) {
                 items(clubs, key = { it.id }) { club ->
                     DirectoryRow(
@@ -96,7 +109,8 @@ fun ClubListScreen(
             }
             else -> LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 112.dp)
             ) {
                 items(clubs, key = { it.id }) { club ->
                     ClubCard(club, club.id in memberClubIds, nextMeetings[club.id]) { onClubClick(club.id) }
@@ -108,22 +122,15 @@ fun ClubListScreen(
 
 @Composable
 private fun ClubListLoadError(message: String, onRetry: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(16.dp))
-        FigmaActionButton(
-            text = "Try again",
-            onClick = onRetry
-        )
-    }
+    FigmaStatusPanel(
+        title = "Couldn't load your clubs",
+        message = message,
+        icon = Icons.Default.ErrorOutline,
+        iconTint = MaterialTheme.colorScheme.error,
+        actionLabel = "Try again",
+        onAction = onRetry,
+        modifier = Modifier.padding(top = 24.dp)
+    )
 }
 
 /**
@@ -248,59 +255,27 @@ private fun DirectoryRow(
 
 @Composable
 private fun EmptyClubs(isDirectory: Boolean) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(100.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Group,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = if (isDirectory) "No clubs available" else "No clubs yet",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = if (isDirectory) {
-                "The club directory has not been published for this year."
-            } else {
-                "Tap + to browse school clubs and add your first one."
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
+    FigmaStatusPanel(
+        title = if (isDirectory) "No clubs available" else "No clubs yet",
+        message = if (isDirectory) {
+            "The club directory has not been published for this year."
+        } else {
+            "Tap + to browse school clubs and add your first one."
+        },
+        icon = Icons.Default.Group,
+        modifier = Modifier.padding(top = 24.dp)
+    )
 }
 
 /** Placeholder cards shown while the first club request is in flight. */
 @Composable
 private fun ClubListSkeleton() {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-        repeat(3) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(132.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
-            )
-        }
-    }
+    FigmaStatusPanel(
+        title = "Loading your clubs",
+        message = "Getting your memberships and upcoming meetings ready.",
+        isLoading = true,
+        modifier = Modifier.padding(top = 24.dp)
+    )
 }
 
 private fun formatTimeRange(event: Event): String {

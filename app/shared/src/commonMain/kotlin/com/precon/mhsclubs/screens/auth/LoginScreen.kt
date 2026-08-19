@@ -37,6 +37,7 @@ import com.precon.mhsclubs.auth.AuthService
 import com.precon.mhsclubs.auth.AuthState
 import com.precon.mhsclubs.auth.SignInPendingException
 import com.precon.mhsclubs.model.UserRole
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 import kotlinx.coroutines.launch
 import mhsclubs.app.shared.generated.resources.Res
 import mhsclubs.app.shared.generated.resources.figma_sign_in_asset_1
@@ -104,7 +105,11 @@ fun LoginContent(isLoading: Boolean, errorMessage: String? = null, onSignInClick
             }
             Spacer(Modifier.height(38.dp))
             if (isLoading) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                FigmaStatusPanel(
+                    title = "Signing you in",
+                    message = "Waiting for Google to finish securely.",
+                    isLoading = true
+                )
             } else {
                 val shape = RoundedCornerShape(100.dp)
                 Row(

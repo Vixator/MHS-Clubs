@@ -20,7 +20,10 @@ class FirebaseTokenVerifier(
     }
 
     fun isStaff(identity: UserIdentity): Boolean =
-        identity.emailVerified && normalizedEmail(identity.email).endsWith(staffDomain)
+        identity.emailVerified && (
+            normalizedEmail(identity.email).endsWith(staffDomain) ||
+            identity.email in allowedAdminEmails
+        )
 
     fun checkScheme(identity: UserIdentity, scheme: AuthenticationScheme): Boolean = when (scheme) {
         AuthenticationScheme.None, AuthenticationScheme.AnyAuthenticated -> identity.emailVerified
@@ -34,22 +37,28 @@ class FirebaseTokenVerifier(
         if (!token.isEmailVerified || !isAllowedEmail(email)) {
             throw SecurityException("This verified school email is required to use MHS Clubs")
         }
-        
-        // Hardcode admin status for precon3515@gmail.com
-        val isAdmin = email == "precon3515@gmail.com"
-        
         return UserIdentity(
             uid = token.uid,
             email = email,
             displayName = token.name,
             emailVerified = true,
-            isAdmin = isAdmin
+            isAdmin = email in allowedAdminEmails
         )
     }
 
     private fun isAllowedEmail(email: String) =
         normalizedEmail(email).endsWith(studentDomain) ||
-            normalizedEmail(email).endsWith(staffDomain)
+            normalizedEmail(email).endsWith(staffDomain) ||
+            email in allowedAdminEmails
+
+    /** Comma-separated list of personal emails granted full staff access for debugging. */
+    private val allowedAdminEmails: Set<String>
+        get() = environment("ALLOWED_ADMIN_EMAILS")
+            ?.split(',')
+            ?.map { it.trim().lowercase() }
+            ?.filter { it.isNotEmpty() }
+            ?.toSet()
+            .orEmpty()
 
     private val studentDomain get() = domainFromEnvironment("STUDENT_EMAIL_DOMAIN", "students.mcpasd.k12.wi.us")
     private val staffDomain get() = domainFromEnvironment("STAFF_EMAIL_DOMAIN", "mcpasd.k12.wi.us")
@@ -58,5 +67,4 @@ class FirebaseTokenVerifier(
         "@${(environment(name) ?: fallback).trim().lowercase().removePrefix("@")}"
 
     private fun normalizedEmail(email: String) = email.trim().lowercase()
-
 }

@@ -2,6 +2,7 @@ package com.precon.mhsclubs.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -34,6 +36,9 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -94,6 +99,7 @@ fun FigmaScreen(modifier: Modifier = Modifier, content: @Composable ColumnScope.
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
             content = content
         )
@@ -116,7 +122,7 @@ fun FigmaBackLabel(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .clip(Stadium)
             .clickable(onClick = onClick)
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .padding(end = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -152,6 +158,7 @@ fun FigmaPill(
             .background(background)
             .then(if (borderColor != null) Modifier.border(1.dp, borderColor, Stadium) else Modifier)
             .pressable(interactionSource, onClick)
+            .heightIn(min = if (onClick == null) 28.dp else 44.dp)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -177,26 +184,28 @@ fun FigmaActionButton(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val alpha = if (enabled) 1f else 0.38f
-    Row(
+    Button(
+        onClick = onClick,
+        enabled = enabled,
         modifier = modifier
-            .heightIn(min = 50.dp)
-            .clip(Stadium)
-            .background(background.copy(alpha = if (enabled) 1f else 0.5f))
-            .pressable(interactionSource, onClick, enabled = enabled)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+            .heightIn(min = 52.dp)
+            .animateContentSize(),
+        shape = Stadium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = background,
+            contentColor = contentColor,
+            disabledContainerColor = background.copy(alpha = 0.5f),
+            disabledContentColor = contentColor.copy(alpha = 0.38f)
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = contentColor.copy(alpha = alpha), modifier = Modifier.size(18.dp))
+            Icon(icon, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            color = contentColor.copy(alpha = alpha),
             maxLines = 1
         )
     }
@@ -222,6 +231,7 @@ fun FigmaCard(
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, borderColor, shape)
             .pressable(interactionSource, onClick)
+            .animateContentSize()
             .padding(16.dp)
     ) {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
@@ -237,18 +247,19 @@ fun FigmaSegmentedControl(
     firstSelected: Boolean,
     onFirst: () -> Unit,
     onSecond: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Row(
         modifier
             .clip(Stadium)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, Stadium)
-            .heightIn(min = 36.dp)
+            .heightIn(min = 48.dp)
             .padding(3.dp)
     ) {
-        Segment(first, firstSelected, modifier = Modifier.weight(1f), onClick = onFirst)
-        Segment(second, !firstSelected, modifier = Modifier.weight(1f), onClick = onSecond)
+        Segment(first, firstSelected, modifier = Modifier.weight(1f), onClick = onFirst, enabled = enabled)
+        Segment(second, !firstSelected, modifier = Modifier.weight(1f), onClick = onSecond, enabled = enabled)
     }
 }
 
@@ -265,7 +276,7 @@ fun FigmaClubFilter(
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, Stadium)
             .clickable(onClick = onClick)
-            .heightIn(min = 34.dp)
+            .heightIn(min = 48.dp)
             .padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -335,7 +346,7 @@ private fun NavigationTab(label: String, selected: Boolean, modifier: Modifier, 
             .clip(Stadium)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = indicator))
             .clickable(onClick = onClick)
-            .heightIn(min = 46.dp)
+            .heightIn(min = 48.dp)
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -420,6 +431,65 @@ fun FigmaTextButton(
     }
 }
 
+/**
+ * Consistent, considerate presentation for loading, empty, and recoverable-error states.
+ * The caller owns all data and retry behavior; this component only standardizes the visual shell.
+ */
+@Composable
+fun FigmaStatusPanel(
+    title: String,
+    message: String,
+    icon: ImageVector? = null,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    FigmaCard(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = iconTint,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(16.dp))
+            FigmaActionButton(
+                text = actionLabel,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onAction
+            )
+        }
+    }
+}
+
 @Composable
 fun FigmaDivider(modifier: Modifier = Modifier) {
     Box(
@@ -452,7 +522,7 @@ fun String.initials(): String =
     split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("")
 
 @Composable
-private fun Segment(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun Segment(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit, enabled: Boolean) {
     val fill by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f)
@@ -461,14 +531,16 @@ private fun Segment(label: String, selected: Boolean, modifier: Modifier, onClic
         modifier = modifier
             .clip(Stadium)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = fill))
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
+            .heightIn(min = 40.dp)
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = (if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                .copy(alpha = if (enabled) 1f else 0.38f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

@@ -2,6 +2,7 @@ package com.precon.mhsclubs.screens.attendance
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +29,7 @@ import com.precon.mhsclubs.ui.FigmaCard
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
 import com.precon.mhsclubs.ui.FigmaTitle
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -55,16 +60,26 @@ fun StudentAttendanceScreen(
         )
         Spacer(Modifier.height(20.dp))
         when {
-            isLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            errorMessage != null -> Text(errorMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-            events.isEmpty() -> Text(
-                "Join a club to see its attendance here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            isLoading -> FigmaStatusPanel(
+                title = "Loading attendance",
+                message = "Checking your attendance across club events.",
+                isLoading = true
+            )
+            errorMessage != null -> FigmaStatusPanel(
+                title = "Couldn't load attendance",
+                message = errorMessage,
+                icon = Icons.Default.ErrorOutline,
+                iconTint = MaterialTheme.colorScheme.error
+            )
+            events.isEmpty() -> FigmaStatusPanel(
+                title = "No attendance yet",
+                message = "Join a club to see its attendance here.",
+                icon = Icons.Default.CalendarToday
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 32.dp)
             ) {
                 items(events.sortedByDescending { it.startTime }, key = { it.id }) { event ->
                     StudentAttendanceRow(event, clubNames[event.clubId], attendanceByEvent[event.id], now)

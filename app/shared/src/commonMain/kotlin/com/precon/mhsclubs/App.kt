@@ -7,6 +7,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -104,6 +113,14 @@ sealed class AppScreen {
     object Announcements : AppScreen()
     object Attendance : AppScreen()
     object Rsvp : AppScreen()
+}
+
+private fun AppScreen.primaryPageIndex(): Int? = when (this) {
+    AppScreen.ClubList -> 0
+    AppScreen.Calendar -> 1
+    AppScreen.Announcements -> 2
+    AppScreen.Account -> 3
+    else -> null
 }
 
 private data class ContentSnapshot(
@@ -289,6 +306,11 @@ fun AppContent(
         currentScreen = AppScreen.ClubList
         selectedClubId = null
     }
+
+    // UI-only route used by the main-list add action; it preserves the existing directory flow.
+    val navigateToClubDirectory: () -> Unit = {
+        currentScreen = AppScreen.ClubDirectory
+    }
     
     val navigateToClubDetail: (String, Boolean) -> Unit = { clubId, fromDirectory ->
         selectedClubId = clubId
@@ -400,7 +422,22 @@ fun AppContent(
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Individual screens manage their own top bars and scroll containers.
-            when (currentScreen) {
+            AnimatedContent(
+                targetState = currentScreen,
+                transitionSpec = {
+                    val initialIndex = initialState.primaryPageIndex()
+                    val targetIndex = targetState.primaryPageIndex()
+                    if (initialIndex != null && targetIndex != null) {
+                        val direction = if (targetIndex > initialIndex) 1 else -1
+                        (slideInHorizontally(tween(240)) { width -> width / 10 * direction } + fadeIn(tween(180))) togetherWith
+                            (slideOutHorizontally(tween(180)) { width -> -width / 10 * direction } + fadeOut(tween(120)))
+                    } else {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    }
+                },
+                label = "Primary page transition"
+            ) { destination ->
+            when (destination) {
         AppScreen.Login -> {
             LoginScreen(
                 authService = authService,
@@ -419,7 +456,8 @@ fun AppContent(
                 memberClubIds = activeClubIds,
                 nextMeetings = nextMeetings,
                 errorMessage = clubLoadError,
-                onRetry = { contentRefreshKey++ }
+                onRetry = { contentRefreshKey++ },
+                onAddClub = navigateToClubDirectory
             )
         }
         
@@ -564,6 +602,7 @@ fun AppContent(
         }
                 AppScreen.Attendance, AppScreen.Rsvp -> Unit
             }
+        }
         }
     if (primaryDestination) {
         FigmaBottomNavigation(

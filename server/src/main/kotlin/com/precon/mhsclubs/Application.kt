@@ -80,8 +80,11 @@ fun Application.module() {
                 if (resource !in studentOwnedResources) return@get call.respondBadRequest("Unsupported student resource")
                 call.respondNoco {
                     val clubIds = nocoDb.activeClubIds(identity.uid)
+                    application.environment.log.info("GET /api/my/$resource - User: ${identity.uid}, ClubIds: $clubIds")
                     if (resource == "events") calendarSync.syncIfDue(clubIds)
-                    nocoDb.recordsForClubs(resource, clubIds)
+                    val result = nocoDb.recordsForClubs(resource, clubIds)
+                    application.environment.log.info("GET /api/my/$resource - Returning: $result")
+                    result
                 }
             }
             /** Staff can force a pull immediately after changing a Google Calendar event. */
@@ -90,7 +93,8 @@ fun Application.module() {
                 if (!verifier.isStaff(identity)) return@post call.respondForbidden()
                 call.respondNoco {
                     val result = calendarSync.sync()
-                    """{"calendars":${result.calendars},"created":${result.created},"updated":${result.updated}}"""
+                    application.environment.log.info("Calendar sync completed: ${result.calendars} calendars, ${result.created} created, ${result.updated} updated, ${result.deleted} deleted")
+                    """{"calendars":${result.calendars},"created":${result.created},"updated":${result.updated},"deleted":${result.deleted}}"""
                 }
             }
             post("/memberships/join") {

@@ -16,9 +16,9 @@ import kotlinx.datetime.toLocalDateTime
 /** Builds display-only occurrences from the clubs table; no events-table rows are created. */
 fun recurringMeetings(
     clubs: List<Club>,
-    from: LocalDate = Clock.System.now().toLocalDateTime(TimeZone.of("America/Chicago")).date.minus(DatePeriod(days = 7)),
+    from: LocalDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.minus(DatePeriod(days = 7)),
     days: Int = 370,
-    timeZone: TimeZone = TimeZone.of("America/Chicago")
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
 ): List<Event> = clubs.flatMap { club ->
     val meetingDays = club.meetingDay.orEmpty().split(',', ';', '&', '/').mapNotNull(::dayOfWeek).toSet()
     val times = Regex("(\\d{1,2}):(\\d{2})\\s*([AaPp][Mm])").findAll(club.meetingTime.orEmpty()).mapNotNull(::clockTime).toList()

@@ -45,6 +45,7 @@ class GoogleCalendarSyncService(
                 val calendarId = string(club, "Calendar", "calendar")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 ClubCalendar(id, calendarId)
             }
+        val syncedClubIds = clubs.map { it.clubId }.toSet()
         val existing = records(nocoDb.listAllRecords("events"))
             .mapNotNull { event ->
                 val clubId = string(event, "club_id", "clubId") ?: return@mapNotNull null
@@ -54,12 +55,17 @@ class GoogleCalendarSyncService(
             .toMap()
         var created = 0
         var updated = 0
-        var ignored = 0
+        var deleted = 0
+        val stillExisting = mutableSetOf<CalendarEventKey>()
+        
         clubs.forEach { club ->
             googleEvents(club.calendarId).forEach { googleEvent ->
                 val googleId = string(googleEvent, "id") ?: return@forEach
                 val start = eventTime(googleEvent.getAsJsonObject("start")) ?: return@forEach
                 val end = eventTime(googleEvent.getAsJsonObject("end"))
+                val key = CalendarEventKey(club.clubId, googleId)
+                stillExisting.add(key)
+                
                 val record = JsonObject().apply {
                     addProperty("club_id", club.clubId)
                     addProperty("google_event_id", googleId)
@@ -69,7 +75,7 @@ class GoogleCalendarSyncService(
                     addProperty("start_time", start)
                     if (end != null) addProperty("end_time", end)
                 }
-                val old = existing[CalendarEventKey(club.clubId, googleId)]
+                val old = existing[key]
                 if (old == null) {
                     nocoDb.createRecord("events", gson.toJson(record))
                     created++
@@ -80,7 +86,22 @@ class GoogleCalendarSyncService(
                 }
             }
         }
-        return CalendarSyncResult(clubs.size, created, updated, ignored)
+        
+        // Delete events that no longer exist in Google Calendar
+        existing.forEach { (key, event) ->
+            // Only delete events from clubs we just synced
+            if (key.clubId in syncedClubIds && key !in stillExisting) {
+                val eventId = string(event, "Id", "id")
+                val eventTitle = string(event, "title") ?: "Unknown"
+                if (eventId != null) {
+                    nocoDb.deleteRecord("events", eventId)
+                    deleted++
+                    println("Deleted event '${eventTitle}' (Google ID: ${key.googleId}) from club ${key.clubId}")
+                }
+            }
+        }
+        
+        return CalendarSyncResult(clubs.size, created, updated, deleted)
     }
 
     /**
@@ -152,6 +173,6 @@ class GoogleCalendarSyncService(
     }
 }
 
-data class CalendarSyncResult(val calendars: Int, val created: Int, val updated: Int, val ignored: Int)
+data class CalendarSyncResult(val calendars: Int, val created: Int, val updated: Int, val deleted: Int)
 private data class ClubCalendar(val clubId: String, val calendarId: String)
 private data class CalendarEventKey(val clubId: String, val googleId: String)

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 class ClubSearchTest {
     private val clubs = listOf(
         Club(id = "robotics", sheetSourceId = "1", name = "Robotics Club", description = "Build robots", code = "ROBOT", category = "STEM"),
-        Club(id = "chess", sheetSourceId = "2", name = "Chess Club", description = "Play chess", code = "CHESS", category = "Games")
+        Club(id = "chess", sheetSourceId = "2", name = "Chess Club", description = "Play chess", code = "CHESS", category = "Games"),
     )
 
     @Test

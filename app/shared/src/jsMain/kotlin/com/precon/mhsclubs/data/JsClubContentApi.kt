@@ -73,21 +73,37 @@ class JsClubContentApi(private val baseUrl: String) : ClubContentApi {
 
     override suspend fun loadEvents(firebaseIdToken: String): List<Event> = records("/api/my/events", firebaseIdToken).mapNotNull { item ->
         runCatching {
+            val startTimeStr = item.string("start_time", "startTime")
+            val endTimeStr = item.nullableString("end_time", "endTime")
+            val createdAtStr = item.nullableString("created_at", "createdAt", "CreatedAt")
+            val updatedAtStr = item.nullableString("updated_at", "updatedAt", "UpdatedAt")
+            
             Event(
                 id = item.id(),
                 clubId = item.string("club_id", "clubId"),
                 title = item.stringOrDefault("title", "Club event"),
                 description = item.stringOrDefault("description", ""),
                 location = item.nullableString("location"),
-                startTime = Instant.parse(item.string("start_time", "startTime")),
-                endTime = item.nullableString("end_time", "endTime")?.let(Instant::parse),
-                createdAt = item.nullableString("created_at", "createdAt", "CreatedAt")?.let(Instant::parse)
-                    ?: item.nullableString("updated_at", "updatedAt", "UpdatedAt")?.let(Instant::parse)
-                    ?: Instant.parse(item.string("start_time", "startTime")),
-                updatedAt = item.nullableString("updated_at", "updatedAt", "UpdatedAt")?.let(Instant::parse)
-                    ?: Instant.parse(item.string("start_time", "startTime"))
+                startTime = parseTimestamp(startTimeStr),
+                endTime = endTimeStr?.let { parseTimestamp(it) },
+                createdAt = createdAtStr?.let { parseTimestamp(it) }
+                    ?: updatedAtStr?.let { parseTimestamp(it) }
+                    ?: parseTimestamp(startTimeStr),
+                updatedAt = updatedAtStr?.let { parseTimestamp(it) }
+                    ?: parseTimestamp(startTimeStr)
             )
+        }.onFailure { error ->
+            console.error("Failed to parse event: ${JSON.stringify(item)}", error)
         }.getOrNull()
+    }
+    
+    private fun parseTimestamp(timestamp: String): Instant {
+        // NocoDB returns timestamps like "2026-08-18 02:00:00+00:00"
+        // Convert to ISO-8601 format: "2026-08-18T02:00:00Z"
+        val normalized = timestamp
+            .replace(" ", "T")
+            .replace("+00:00", "Z")
+        return Instant.parse(normalized)
     }
 
     override suspend fun loadAnnouncements(firebaseIdToken: String): List<Announcement> = records("/api/my/announcements", firebaseIdToken).mapNotNull { item ->

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import com.precon.mhsclubs.ui.FigmaBackLabel
 import com.precon.mhsclubs.ui.FigmaOutlinedTextField
 import com.precon.mhsclubs.ui.FigmaScreen
 import com.precon.mhsclubs.ui.FigmaTitle
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 
 /**
  * Join club screen for entering a club name.
@@ -65,9 +65,10 @@ fun JoinClubScreen(
         )
         Spacer(Modifier.height(24.dp))
         if (isLoading) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+            FigmaStatusPanel(
+                title = "Joining club",
+                message = "Confirming your membership.",
+                isLoading = true
             )
         } else {
             FigmaActionButton(

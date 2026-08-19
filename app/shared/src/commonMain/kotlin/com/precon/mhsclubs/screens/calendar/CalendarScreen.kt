@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -20,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -44,6 +46,7 @@ import com.precon.mhsclubs.ui.FigmaClubFilter
 import com.precon.mhsclubs.ui.FigmaPill
 import com.precon.mhsclubs.ui.FigmaScreen
 import com.precon.mhsclubs.ui.FigmaTitle
+import com.precon.mhsclubs.ui.FigmaStatusPanel
 import com.precon.mhsclubs.ui.textTertiary
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
@@ -116,17 +119,18 @@ fun CalendarScreen(
         Spacer(Modifier.height(12.dp))
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 112.dp)
         ) {
             items(agenda, key = { it.id }) { event ->
                 CalendarEventCard(event) { onEventClick(event.id) }
             }
             if (agenda.isEmpty()) {
                 item {
-                    Text(
-                        text = "No upcoming events${selectedDate?.let { " on ${it.pretty()}" } ?: ""}.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    FigmaStatusPanel(
+                        title = "Nothing scheduled",
+                        message = "No upcoming events${selectedDate?.let { " on ${it.pretty()}" } ?: ""}.",
+                        icon = Icons.Default.CalendarToday
                     )
                 }
             }
@@ -200,7 +204,7 @@ private fun MonthPanel(
 private fun MonthArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(44.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick),
@@ -228,7 +232,7 @@ private fun DayCell(
     Box(modifier = modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
         Column(
             modifier = Modifier
-                .size(36.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .background(if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
                 .then(
